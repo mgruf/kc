@@ -200,3 +200,70 @@ dialog .row { display: flex; gap: 8px; }
 .actions button { padding: 9px 16px; border-radius: 10px; background: var(--ink); color: var(--bg); }
 .actions .ghost { background: none; color: var(--ink-2); }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabh) + env(safe-area-inset-bottom) + 20px); background: var(--ink); color: var(--bg); padding: 9px 14px; border-radius: 10px; font-size: 14px; z-index: 20; }
+
+/* ---------- v2: projekt, widgets, inspelning, genvägar ---------- */
+.cards.small { padding-top: 6px; }
+.cards.small .card { padding: 12px 14px; }
+.cards.small .card h3 { font-size: 17px; }
+.phead .editbtn { margin-left: auto; font-size: 14px; color: var(--ink-3); }
+.grid { grid-template-columns: repeat(6, 1fr); }
+.w.size-s { grid-column: span 2; }
+.w.size-m { grid-column: span 3; }
+.w.size-l { grid-column: span 6; }
+@media (max-width: 700px) {
+  .grid { grid-template-columns: 1fr; }
+  .w.size-s, .w.size-m, .w.size-l { grid-column: auto; }
+  .phead { flex-wrap: wrap; gap: 4px 14px; padding-top: 18px; }
+  .phead .back { flex-basis: 100%; text-align: left; }
+  .phead h2 { font-size: 28px; }
+}
+.wtools { display: none; gap: 4px; float: right; margin: -4px -6px 0 0; }
+.editing .wtools { display: flex; }
+.wtools button { min-width: 26px; height: 26px; border-radius: 7px; background: var(--line); font: 12px var(--din); color: var(--ink-2); }
+.editing .w { cursor: grab; border-style: dashed; }
+.editing .w .item, .editing .w a { pointer-events: none; }
+.addw .chip { margin: 0 4px 6px 0; }
+.w .more.shown, .more.shown { display: block; }
+
+.files { display: grid; gap: 2px; }
+.file { display: flex; flex-direction: column; padding: 8px 0; border-top: 1px solid var(--line); text-decoration: none; }
+.file:first-child { border-top: 0; }
+.file small { color: var(--ink-3); font-size: 12px; }
+.addlink { justify-self: start; margin-top: 6px; font-size: 13px; color: var(--ink-3); }
+
+.big { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 8px; }
+.big .num { font: 40px/1 var(--din); }
+.big .of { font: 15px var(--din); color: var(--ink-3); }
+.bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-bottom: 10px; }
+.bar i { display: block; height: 100%; background: var(--ink); }
+.kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.kv span { color: var(--ink-2); }
+.kv b { font: 400 15px var(--din); text-align: right; }
+.firetext span, .firetext b { color: var(--fire); }
+
+.tl { position: relative; padding-top: 18px; }
+.tlhead { position: absolute; top: 0; left: calc(30% + 8px); right: 0; height: 14px; }
+.tlhead span { position: absolute; font: 11px var(--din); color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+.tlrow { display: flex; align-items: center; gap: 8px; height: 24px; }
+.tlname { width: 30%; flex: none; font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tltrack { position: relative; flex: 1; height: 100%; }
+.tltrack i { position: absolute; top: 8px; height: 8px; border-radius: 4px; background: var(--ink-2); }
+.tltrack .ms { position: absolute; top: 7px; width: 9px; height: 9px; margin-left: -4px; background: var(--ink); transform: rotate(45deg); }
+.tlnow { position: absolute; top: 16px; bottom: 0; width: 1px; background: var(--ink); opacity: .35; left: calc(30% + 8px + (70% - 8px) * var(--p) / 100); }
+.more-link { display: inline-block; margin-top: 10px; font-size: 13px; color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line); }
+
+.pins { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+.pin { font: 13px/1 var(--din); padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); text-decoration: none; color: var(--ink-2); background: var(--surface); -webkit-user-select: none; user-select: none; }
+.pin.add { color: var(--ink-3); padding: 8px 11px; }
+#idag .pins { grid-column: 1 / -1; }
+
+.shoothead { font-size: 13px; color: var(--ink-3); padding: 10px 0 0; }
+.shoothead a { color: var(--ink-2); }
+.scene { padding: 5px 0; font-size: 14px; border-top: 1px solid var(--line); }
+.scene:first-child { border-top: 0; }
+.scene b { font: 400 14px var(--din); margin-right: 6px; }
+.scene small { display: block; color: var(--ink-3); font-size: 12px; }
+
+.editing .w { padding-top: 40px; position: relative; }
+.editing .wtools { position: absolute; top: 8px; right: 10px; margin: 0; float: none; }
+.noteglyph.firetext { color: var(--fire); font-family: var(--din); }
