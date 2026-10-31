@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="KC">
+<meta name="theme-color" content="#FAF8F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)">
+<title>KC</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="mode" role="group" aria-label="Läge">
+    <button data-mode="jobb" class="on">Jobb</button>
+    <button data-mode="privat">Privat</button>
+  </div>
+  <button class="other" id="otherToggle" title="Hur det andra läget visas">Tonat</button>
+  <span class="sync" id="sync"></span>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button data-tab="idag" class="on">Idag<span class="badge" id="fireBadge" hidden></span></button>
+  <button data-tab="projekt">Projekt</button>
+  <button data-tab="horisont">Horisont</button>
+</nav>
+
+<main>
+  <section id="idag" class="view on"></section>
+  <section id="projekt" class="view"></section>
+  <section id="horisont" class="view"></section>
+</main>
+
+<button class="fab add" id="addBtn" aria-label="Ny">+</button>
+<a class="fab claude" id="claudeBtn" aria-label="Fråga Claude" target="_blank" rel="noopener">C</a>
+
+<dialog id="addDlg">
+  <form method="dialog" id="addForm">
+    <div class="seg" role="group">
+      <button type="button" data-kind="task" class="on">Uppgift</button>
+      <button type="button" data-kind="event">Händelse</button>
+      <button type="button" data-kind="note">Anteckning</button>
+    </div>
+    <input id="addTitle" placeholder="Vad?" autocomplete="off" required>
+    <textarea id="addText" placeholder="Anteckning" rows="4" hidden></textarea>
+    <div class="row" id="addWhen">
+      <input type="date" id="addDate">
+      <input type="time" id="addTime" hidden>
+    </div>
+    <select id="addCal" hidden></select>
+    <p class="hint" id="addHint"></p>
+    <div class="actions">
+      <button type="button" class="ghost" id="addCancel">Avbryt</button>
+      <button type="submit" id="addSave">Spara</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="setupDlg">
+  <form method="dialog" id="setupForm">
+    <h2>Koppla KC</h2>
+    <p class="hint">Klistra in adressen till Apps Script-webbappen och den privata nyckeln. De sparas bara i den här webbläsaren.</p>
+    <input id="setupUrl" placeholder="https://script.google.com/macros/s/…/exec" required>
+    <input id="setupKey" placeholder="Nyckel" required>
+    <div class="actions"><button type="submit">Spara</button></div>
+  </form>
+</dialog>
+
+<script src="quotes.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
