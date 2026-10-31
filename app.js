@@ -137,7 +137,7 @@ function eventRow(e, showDay) {
 }
 
 function noteRow(n) {
-  const open = `shortcuts://run-shortcut?name=${encodeURIComponent('Öppna anteckning')}&input=text&text=${encodeURIComponent(n.folder + '|' + n.title)}`;
+  const open = `shortcuts://run-shortcut?name=${encodeURIComponent('KC anteckning')}&input=text&text=${encodeURIComponent(n.folder + '|' + n.title)}`;
   return `<div class="item ${modeCls(n.mode)}">
     <div class="noteglyph">≡</div>
     <div class="main">
