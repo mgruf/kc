@@ -426,8 +426,8 @@ const placeCase = s => s.split(/(\s+|·|\/|-)/).map(w => {
   const l = w.toLowerCase();
   if (SMALL.has(l)) return l;
   if (w.length <= 3 && !/\d/.test(w)) return w;
-  return l.replace(/[a-zåäö]/, c => c.toUpperCase());
-}).join('').replace(/[a-zåäö]/, c => c.toUpperCase());
+  return l.replace(/^([^a-zåäö]*)([a-zåäö])/, (m, a, b) => a + b.toUpperCase());
+}).join('').replace(/^([^A-Za-zÅÄÖåäö]*)([a-zåäö])/, (m, a, b) => a + b.toUpperCase());
 
 function shootRow(d, p, full) {
   const scenes = d.scenes || [];
