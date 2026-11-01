@@ -276,10 +276,10 @@ const W = {
   files:    { title: 'Filer', size: 'm' },
   scripts:  { title: 'Manusversioner', size: 's', when: p => p.cfg?.scripts?.length },
   notes:    { title: 'Anteckningar', size: 'm' },
-  budget:   { title: 'Budget', size: 's' },
-  team:     { title: 'Team', size: 's' },
+  budget:   { title: 'Budget', size: 'm', when: p => p.cfg?.budget },
+  team:     { title: 'Team', size: 's', when: p => p.cfg?.crew },
 };
-const DEFAULT_JOBB = ['summary', 'shoot', 'upcoming', 'tasks', 'waiting', 'timeline', 'files', 'scripts', 'notes'];
+const DEFAULT_JOBB = ['summary', 'shoot', 'upcoming', 'tasks', 'waiting', 'timeline', 'budget', 'files', 'scripts', 'team', 'notes'];
 const DEFAULT_PRIVAT = ['summary', 'upcoming', 'tasks', 'notes', 'files'];
 
 function layoutFor(p) {
@@ -391,10 +391,26 @@ function renderWidget(id, p) {
     case 'timeline': return timelineHtml(p);
     case 'scripts':
       return (c.scripts || []).map(s => { const m = /^(\d{6})_?(.*)$/.exec(s.version) || []; return `<div class="kv"><span>${esc(s.film)}</span><b>${esc(m[2] || s.version)}${m[1] ? ` · ${shortDate('20' + m[1].slice(0, 2) + '-' + m[1].slice(2, 4) + '-' + m[1].slice(4))}` : ''}</b></div>`; }).join('') || empty('Inga manusversioner hittade.');
-    case 'budget': return empty('Inte kopplad än. Budgetfliken i produktionsplanen är tom – säg till vilket budgetark som ska läsas.');
-    case 'team': return empty('Kommer: teamlistor från PDF blir kontakter i Google Kontakter med projektetikett, efter ditt godkännande.');
+    case 'budget': return budgetHtml(c.budget);
+    case 'team':
+      return c.crew ? `<div class="files"><a class="file" href="${esc(c.crew.url)}" target="_blank" rel="noopener"><span>Crewlista</span><small>${esc(c.crew.name)} · uppdaterad ${esc(shortDate(c.crew.updated))}</small></a></div>
+        <p class="empty">Import till Google Kontakter med projektetikett kommer – du godkänner varje omgång.</p>` : empty('Ingen crewlista kopplad.');
   }
   return '';
+}
+
+const kr = n => (Math.round(n / 1000)).toLocaleString('sv-SE') + ' tkr';
+const mkr = n => (n / 1e6).toLocaleString('sv-SE', { maximumFractionDigits: 1 }) + ' Mkr';
+function budgetHtml(b) {
+  if (!b) return '<p class="empty">Ingen budget inläst än. Macen läser senaste Budget_Working-PDF:en automatiskt.</p>';
+  const prev = {}; (b.prev?.rows || []).forEach(([acc, amt]) => prev[acc] = amt);
+  const changed = (b.rows || []).filter(([acc, , amt]) => prev[acc] !== undefined && prev[acc] !== amt)
+    .map(([acc, name, amt]) => ({ acc, name, d: amt - prev[acc] })).sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
+  const dTot = b.prev ? b.total - b.prev.total : 0;
+  return `<div class="big"><span class="num">${esc(mkr(b.total))}</span><span class="of">totalt</span></div>
+    ${(b.groups || []).map(g => `<div class="kv"><span>${esc(g.name.toLowerCase().replace(/^./, c => c.toUpperCase()))}</span><b>${esc(mkr(g.amount))}</b></div>`).join('')}
+    <div class="sub2">Version ${esc(shortDate(b.date))}${b.prev ? ` · jämfört med ${esc(shortDate(b.prev.date))}` : ''}</div>
+    ${b.prev ? (changed.length ? `<div class="sub2">Omfördelat${dTot ? ` · totalen ${dTot > 0 ? '+' : ''}${esc(kr(dTot))}` : ''}</div>` + changed.slice(0, 6).map(r => `<div class="kv"><span>${esc(r.acc)} ${esc(r.name.toLowerCase())}</span><b>${r.d > 0 ? '+' : ''}${esc(kr(r.d))}</b></div>`).join('') : '<div class="sub2">Inga omfördelningar sedan förra versionen.</div>') : ''}`;
 }
 
 function planRow(x, p) {
@@ -403,12 +419,22 @@ function planRow(x, p) {
     <div class="sub">${esc(shortDate(x.date))}${x.text ? ' · ' + esc(x.text) : ''}${x.to ? ' · ' + esc(x.to) : ''}</div></div></div>`;
 }
 
+// "BLACK CYCLES PÅ SLOTTSBERGET" → "Black Cycles på Slottsberget"; korta förkortningar (MC, GSI) behålls.
+const SMALL = new Set(['på', 'och', 'i', 'med', 'till', 'av', 'för', 'vid', 'ur', 'om', 'en', 'ett', 'the', 'of']);
+const placeCase = s => s.split(/(\s+|·|\/|-)/).map(w => {
+  if (!/[A-ZÅÄÖ]/.test(w) || w !== w.toUpperCase()) return w;
+  const l = w.toLowerCase();
+  if (SMALL.has(l)) return l;
+  if (w.length <= 3 && !/\d/.test(w)) return w;
+  return l.replace(/[a-zåäö]/, c => c.toUpperCase());
+}).join('').replace(/[a-zåäö]/, c => c.toUpperCase());
+
 function shootRow(d, p, full) {
   const scenes = d.scenes || [];
   return `<div class="item ${modeCls(p?.mode)}"><div class="time">Dag ${d.day}</div><div class="main">
-    <div class="title">Inspelning${d.note ? ' · ' + esc(d.note) : ''}${p ? `<span class="tags">${tagHtml([p.tag])}</span>` : ''}</div>
+    <div class="title">${d.note ? esc(placeCase(d.note)) : 'Inspelning'}${p ? `<span class="tags">${tagHtml([p.tag])}</span>` : ''}</div>
     <div class="sub">${esc(d.hours)}${d.pages ? ' · ' + esc(d.pages) + ' sidor' : ''}${d.strips ? ' · ' + d.strips + ' scener' : ''}</div>
-    ${scenes.length ? `<div class="more ${full ? 'shown' : ''}">${scenes.map(s => `<div class="scene"><b>${esc(s.scene)}</b> ${esc(s.ie)} ${esc(s.place)} · ${esc(s.tod)} · ${esc(s.pages)}${s.cast ? `<small>${esc(s.cast)}</small>` : ''}</div>`).join('')}</div>` : ''}
+    ${d.info || scenes.length ? `<div class="more ${full ? 'shown' : ''}">${d.info ? `<div class="scene info">${esc(d.info)}</div>` : ''}${scenes.map(s => `<div class="scene"><b>${esc(s.scene)}</b> ${esc(s.ie)} ${esc(s.place)} · ${esc(s.tod)} · ${esc(s.pages)}${s.cast ? `<small>${esc(s.cast)}</small>` : ''}</div>`).join('')}</div>` : ''}
   </div></div>`;
 }
 

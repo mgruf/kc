@@ -267,3 +267,6 @@ dialog .row { display: flex; gap: 8px; }
 .editing .w { padding-top: 40px; position: relative; }
 .editing .wtools { position: absolute; top: 8px; right: 10px; margin: 0; float: none; }
 .noteglyph.firetext { color: var(--fire); font-family: var(--din); }
+
+.sub2 { font-size: 12px; color: var(--ink-3); padding: 10px 0 2px; letter-spacing: .02em; }
+.scene.info { color: var(--ink-2); font-size: 13px; }
