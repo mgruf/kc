@@ -46,6 +46,44 @@ const tagColor = t => { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt
 let HIDE_TAG = null;   // projektets egen tagg visas inte inne i projektet
 const tagHtml = tags => (tags || []).filter(t => !isDateTag(t) && t !== '#PRIVAT' && t !== HIDE_TAG).map(t => `<span class="tag" style="--tc:${tagColor(t)}">${esc(t.slice(1))}</span>`).join('');
 const cleanTitle = s => String(s || '').replace(/\s*#[0-9A-Za-zÅÄÖåäö_-]+/g, '').trim() || s;
+const TAG_RE = /#[0-9A-Za-zÅÄÖåäö_-]+/g;
+
+// ---------- kontakt och mail (samma format som MailPro) ----------
+// Kontakten ligger som raden "Kontakt: Namn <adress>" i uppgiftens anteckning (äldre: "Från:").
+function personIn(text) {
+  const t = String(text || '').trim();
+  const m = /^(.*?)<\s*([^>\s]+@[^>\s]+)\s*>/.exec(t);
+  if (m) { const n = m[1].trim().replace(/^["']|["']$/g, ''); return { name: n || m[2], email: m[2] }; }
+  const tok = t.split(/\s+/).find(x => x.includes('@'));
+  if (!tok) return null;
+  const e = tok.replace(/[<>,;"']/g, '');
+  return { name: e, email: e };
+}
+function contactOf(t) {
+  const lines = String(t.notes || '').split('\n').map(l => l.trim());
+  for (const k of ['Kontakt:', 'Från:']) {
+    const l = lines.find(x => x.startsWith(k));
+    const p = l && personIn(l.slice(k.length));
+    if (p) return p;
+  }
+  return null;
+}
+const contactLine = p => p.name && p.name.toLowerCase() !== p.email.toLowerCase() ? `Kontakt: ${p.name} <${p.email}>` : `Kontakt: <${p.email}>`;
+function threadOf(t) {
+  const s = (t.notes || '') + ' ' + (t.mail || '');
+  let m = /mailpro:\/\/thread\/([A-Za-z0-9]+)/.exec(s); if (m) return m[1];
+  m = /mail\.google\.com\/mail\/[^\s#]*#[^\s\/]+\/([A-Fa-f0-9]{10,})/.exec(s);
+  return m ? m[1] : null;
+}
+const mailHref = t => { const id = threadOf(t); return id ? 'mailpro://thread/' + id : (t.mail || null); };
+const firstName = n => String(n || '').split(/[\s@]+/)[0];
+const initials = n => String(n || '?').split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
+function allContacts() {
+  const m = new Map();
+  (S.data?.tasks || []).forEach(t => { const p = contactOf(t); if (p && !m.has(p.email.toLowerCase())) m.set(p.email.toLowerCase(), p); });
+  return [...m.values()].sort((a, b) => a.name.localeCompare(b.name, 'sv'));
+}
+const gcalLink = e => { try { return 'https://calendar.google.com/calendar/event?eid=' + btoa(unescape(encodeURIComponent(String(e.id).replace(/@google\.com$/, '') + ' ' + e.calId))).replace(/=+$/, ''); } catch { return 'https://calendar.google.com/'; } };
 
 // ---------- läge ----------
 const modeCls = m => (m && m !== S.mode) ? (S.other === 'dolj' ? null : 'dim') : '';
@@ -128,17 +166,14 @@ function warnRow(w, p) {
 
 // ---------- rader ----------
 function taskRow(t) {
-  const cls = ['item', modeCls(t.mode), S.done[t.id] ? 'done' : '', isFire(t) ? 'fire' : ''].join(' ');
+  const cls = ['item', 'task', modeCls(t.mode), S.done[t.id] ? 'done' : '', isFire(t) ? 'fire' : '', t.pending ? 'pending' : ''].join(' ');
+  const p = contactOf(t), mh = mailHref(t);
   const due = t.due ? `<span class="due">${t.due === todayStr() ? 'idag' : shortDate(t.due)}</span> · ` : isWaitingLong(t) ? `<span class="due">väntat ${waitedDays(t)} dagar</span> · ` : '';
   return `<div class="${cls} ${isWaitingLong(t) ? 'fire' : ''}" data-task="${esc(t.id)}" data-list="${esc(t.listId)}">
     <button class="check" aria-label="Bocka av"></button>
     <div class="main">
       <div class="title">${esc(cleanTitle(t.title))}<span class="tags">${tagHtml(t.tags)}</span></div>
-      <div class="sub">${due}${esc(t.list)}</div>
-      <div class="more">${t.notes ? esc(t.notes) : ''}<div class="links">
-        <a href="${claudeUrl('Uppgift: ' + t.title + (t.notes ? '\n' + t.notes : ''))}" target="_blank" rel="noopener">Fråga Claude</a>
-        ${t.link ? `<a href="${esc(t.link)}" target="_blank" rel="noopener">Öppna i Tasks</a>` : ''}
-      </div></div>
+      <div class="sub">${due}${esc(t.list)}${p ? `<button class="pchip" data-person="${esc(p.email)}" title="${esc(p.name)}"><i>${esc(initials(p.name))}</i>${esc(firstName(p.name))}</button>` : ''}${mh ? `<a class="mchip" href="${esc(mh)}" title="Öppna mailet">Mailet</a>` : ''}</div>
     </div></div>`;
 }
 
@@ -147,12 +182,11 @@ function eventRow(e, showDay) {
   const past = !e.allDay && new Date(e.end) < now;
   const cur = !e.allDay && new Date(e.start) <= now && new Date(e.end) > now;
   const time = e.allDay ? 'Heldag' : hhmm(e.start);
-  return `<div class="item ${modeCls(e.mode)} ${past ? 'past' : ''}">
+  return `<div class="item event ${modeCls(e.mode)} ${past ? 'past' : ''} ${e.pending ? 'pending' : ''}" data-ev="${esc(e.id)}" data-evs="${esc(e.start)}">
     <div class="time ${cur ? 'now' : ''}">${time}</div>
     <div class="main">
       <div class="title">${esc(e.title)}<span class="tags">${tagHtml(e.tags)}</span></div>
       <div class="sub">${!e.allDay ? hhmm(e.start) + '–' + hhmm(e.end) + ' · ' : ''}${esc(e.cal)}${e.location ? ' · ' + esc(e.location) : ''}</div>
-      <div class="more"><div class="links"><a href="${claudeUrl('Kalenderhändelse: ' + e.title + ' ' + (e.allDay ? e.start : new Date(e.start).toLocaleString('sv-SE')) + (e.location ? ', ' + e.location : ''))}" target="_blank" rel="noopener">Fråga Claude</a></div></div>
     </div></div>`;
 }
 
@@ -583,6 +617,9 @@ document.addEventListener('click', async ev => {
     catch { delete S.done[id]; render(); toast('Kunde inte spara – försök igen'); }
     return;
   }
+  if (b.matches('[data-person]')) { ev.preventDefault(); return openPerson(b.dataset.person); }
+  if (b.matches('.item[data-task]') && !tgt.closest('a') && !b.closest('.editing')) return openTask(b.dataset.task);
+  if (b.matches('.item[data-ev]') && !tgt.closest('a') && !b.closest('.editing')) return openEvent(b.dataset.ev, b.dataset.evs);
   if (b.matches('.item') && !tgt.closest('a') && !b.closest('.editing')) b.classList.toggle('open');
 });
 
@@ -672,6 +709,8 @@ function openAdd() {
   setKind(S.tab === 'horisont' ? 'event' : 'task');
   const cals = S.data?.writableCalendars || [];
   $('#addCal').innerHTML = cals.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  $('#addList').innerHTML = listOptions();
+  const inbox = (S.data?.taskLists || []).find(l => /INBOX/i.test(l.title)); if (inbox) $('#addList').value = inbox.id;
   const pref = cals.find(c => c.mode === S.mode); if (pref) $('#addCal').value = pref.id;
   d.showModal(); setTimeout(() => $('#addTitle').focus(), 50);
 }
@@ -682,10 +721,11 @@ function setKind(k) {
   $('#addWhen').hidden = k === 'note';
   $('#addTime').hidden = k !== 'event';
   $('#addCal').hidden = k !== 'event';
+  $('#addList').hidden = k !== 'task' || !(S.data?.taskLists || []).length;
   $('#addTitle').placeholder = k === 'note' ? 'Titel' : 'Vad?';
   const cals = S.data?.writableCalendars || [];
   $('#addHint').textContent =
-    k === 'task' ? 'Hamnar i Tasks-inkorgen. Datum är valfritt.' :
+    k === 'task' ? 'Datum är valfritt. #JF4 i titeln kopplar till projektet.' :
     k === 'note' ? 'Läggs i Notes-inkorgen när Macen synkar nästa gång. Taggar som #JF4 eller #261105 fungerar.' :
     (S.mode === 'privat' && !cals.some(c => c.mode === 'privat') ? 'Privata kalendern går inte att skriva till än – händelsen hamnar i jobbkalendern.' : 'Utan tid blir det en heldag.');
   if (k === 'event' && !$('#addDate').value) $('#addDate').value = todayStr();
@@ -697,12 +737,212 @@ $('#addForm').addEventListener('submit', async ev => {
   const title = $('#addTitle').value.trim(); if (!title) return;
   $('#addDlg').close();
   try {
-    if (kind === 'task') await api('addTask', { title, due: $('#addDate').value || '' }, true);
+    if (kind === 'task') await api('addTask', { title, due: $('#addDate').value || '', listId: $('#addList').value || '' }, true);
     if (kind === 'event') await api('addEvent', { title, date: $('#addDate').value || todayStr(), time: $('#addTime').value || '', calendarId: $('#addCal').value }, true);
     if (kind === 'note') await api('addNote', { title, text: $('#addText').value }, true);
     toast('Sparat'); refresh();
   } catch { toast('Kunde inte spara'); }
 });
+
+// ---------- redigera uppgifter ----------
+const listOptions = () => (S.data?.taskLists || []).map(l => `<option value="${esc(l.id)}">${esc(l.title)}</option>`).join('');
+const findTask = id => (S.data?.tasks || []).find(t => t.id === id);
+const knownTags = () => projects().filter(p => p.cfg || p.tasks.length).map(p => p.tag);
+let TASK = null, TTAGS = [];
+
+function openTask(id) {
+  const t = findTask(id); if (!t) return;
+  TASK = t;
+  if ($('#taskDlg').open) $('#taskDlg').close();
+  const raw = String(t.title).match(TAG_RE) || [];
+  TTAGS = raw.filter(x => !isDateTag(x)).map(x => x.toUpperCase());
+  $('#tTitle').value = cleanTitle(t.title);
+  $('#tDue').value = t.due || '';
+  $('#tList').innerHTML = listOptions(); $('#tList').value = t.listId;
+  const c = contactOf(t);
+  $('#tContact').value = c ? (c.name !== c.email ? `${c.name} <${c.email}>` : c.email) : '';
+  $('#contactList').innerHTML = allContacts().map(p => `<option value="${esc(p.name !== p.email ? `${p.name} <${p.email}>` : p.email)}">`).join('');
+  $('#tNotes').value = String(t.notes || '').split('\n').filter(l => !/^\s*Kontakt:/.test(l)).join('\n').replace(/^\n+/, '');
+  drawTagPick();
+  // Tidsblock: förslag = uppgiftens datum (eller idag), nästa hela timme
+  const cals = S.data?.writableCalendars || [];
+  $('#tbCal').innerHTML = cals.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  const pref = cals.find(c => c.mode === t.mode); if (pref) $('#tbCal').value = pref.id;
+  $('#tbDate').value = t.due && t.due >= todayStr() ? t.due : todayStr();
+  $('#tbTime').value = `${String(Math.min(new Date().getHours() + 1, 20)).padStart(2, '0')}:00`;
+  $('#tBlock').open = false; $('#tBlock').hidden = !cals.length;
+  const mh = mailHref(t);
+  $('#tLinks').innerHTML = [
+    mh && `<a href="${esc(mh)}">Öppna mailet</a>`,
+    c && `<a href="#" data-person="${esc(c.email)}">Allt med ${esc(firstName(c.name))}</a>`,
+    `<a href="${claudeUrl('Uppgift: ' + t.title + (t.notes ? '\n' + t.notes : ''))}" target="_blank" rel="noopener">Fråga Claude</a>`,
+    t.link && `<a href="${esc(t.link)}" target="_blank" rel="noopener">Öppna i Tasks</a>`,
+  ].filter(Boolean).join('');
+  $('#taskDlg').showModal();
+}
+
+function drawTagPick() {
+  const all = [...new Set([...knownTags(), ...TTAGS])];
+  $('#tTags').innerHTML = all.map(g => `<button type="button" class="chip ${TTAGS.includes(g) ? 'on' : ''}" data-ttag="${esc(g)}">${esc(g.slice(1))}</button>`).join('');
+}
+$('#tTags').addEventListener('click', e => {
+  const b = e.target.closest('[data-ttag]'); if (!b) return;
+  const g = b.dataset.ttag;
+  TTAGS = TTAGS.includes(g) ? TTAGS.filter(x => x !== g) : [...TTAGS, g];
+  drawTagPick();
+});
+$('#tQuick').addEventListener('click', e => {
+  const b = e.target.closest('[data-due]'); if (!b) return;
+  const v = b.dataset.due, d = new Date();
+  if (v === '') $('#tDue').value = '';
+  else if (v === 'mon') { const n = (8 - d.getDay()) % 7 || 7; $('#tDue').value = ymd(addDays(d, n)); }
+  else $('#tDue').value = ymd(addDays(d, Number(v)));
+});
+$('#tCancel').addEventListener('click', () => $('#taskDlg').close());
+
+function taskPayload() {
+  const t = TASK;
+  const dateTags = (String(t.title).match(TAG_RE) || []).filter(isDateTag);
+  const base = $('#tTitle').value.trim() || cleanTitle(t.title);
+  const title = [base, ...TTAGS, ...dateTags].join(' ');
+  let notes = $('#tNotes').value.replace(/\s+$/, '');
+  const c = personIn($('#tContact').value);
+  if (c) notes = contactLine(c) + (notes ? '\n' + notes : '');
+  return { title, notes, due: $('#tDue').value || '', newListId: $('#tList').value };
+}
+
+$('#taskForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const t = TASK, p = taskPayload();
+  $('#taskDlg').close();
+  const before = { ...t };
+  const list = (S.data.taskLists || []).find(l => l.id === p.newListId);
+  Object.assign(t, { title: p.title, notes: p.notes, due: p.due || null, pending: true,
+    listId: p.newListId, list: list?.title || t.list, tags: [...new Set((p.title.match(TAG_RE) || []).map(x => x.toUpperCase()))] });
+  render();
+  try {
+    await api('updateTask', { listId: before.listId, taskId: t.id, title: p.title, notes: p.notes, due: p.due, newListId: p.newListId !== before.listId ? p.newListId : '' }, true);
+    toast('Sparat'); refresh();
+  } catch (e) { Object.assign(t, before, { pending: false }); render(); toast('Kunde inte spara – ' + e.message); }
+});
+
+$('#tDelete').addEventListener('click', async () => {
+  const t = TASK; if (!confirm(`Ta bort "${cleanTitle(t.title)}"?`)) return;
+  $('#taskDlg').close();
+  const i = S.data.tasks.indexOf(t); S.data.tasks.splice(i, 1); render();
+  try { await api('deleteTask', { listId: t.listId, taskId: t.id }, true); toast('Borttagen'); }
+  catch (e) { S.data.tasks.splice(i, 0, t); render(); toast('Kunde inte ta bort – ' + e.message); }
+});
+
+// Tidsblock: bokar tid i kalendern för uppgiften och ger den datumet.
+$('#tbAdd').addEventListener('click', async () => {
+  const t = TASK, date = $('#tbDate').value, time = $('#tbTime').value, minutes = Number($('#tbLen').value);
+  if (!date || !time) return toast('Välj dag och tid');
+  const title = cleanTitle($('#tTitle').value.trim() || t.title);
+  const tags = TTAGS.join(' ');
+  const description = [`Tidsblock för uppgiften "${title}" (${t.list}).`, tags, t.link ? 'Uppgiften: ' + t.link : ''].filter(Boolean).join('\n');
+  $('#taskDlg').close();
+  const start = new Date(`${date}T${time}`), end = new Date(start.getTime() + minutes * 60000);
+  const cal = (S.data.writableCalendars || []).find(c => c.id === $('#tbCal').value) || {};
+  const tmp = { id: 'tmp' + Date.now(), calId: cal.id, cal: cal.name || '', mode: cal.mode || S.mode, title: title + (tags ? ' ' + tags : ''), location: '', allDay: false, start: start.toISOString(), end: end.toISOString(), tags: TTAGS, writable: true, pending: true };
+  S.data.events.push(tmp);
+  const setDue = !t.due;
+  if (setDue) t.due = date;
+  render();
+  try {
+    await api('addEvent', { title: tmp.title, date, time, minutes, calendarId: cal.id, description }, true);
+    if (setDue) await api('updateTask', { listId: t.listId, taskId: t.id, due: date }, true);
+    toast('Tiden är bokad'); refresh();
+  } catch (e) { S.data.events = S.data.events.filter(x => x !== tmp); render(); toast('Kunde inte boka – ' + e.message); }
+});
+
+// ---------- redigera händelser ----------
+let EVENT = null;
+const findEvent = (id, start) => [...(S.data?.events || []), ...S.extraEvents].find(e => e.id === id && e.start === start) || [...(S.data?.events || []), ...S.extraEvents].find(e => e.id === id);
+
+function openEvent(id, start) {
+  const e = findEvent(id, start); if (!e) return;
+  EVENT = e;
+  const editable = e.writable && !e.recurring && !String(e.id).startsWith('tmp');
+  $('#eTitle').value = e.title;
+  $('#eAllDay').checked = !!e.allDay;
+  if (e.allDay) {
+    $('#eDate').value = e.start;
+    const last = ymd(addDays(parseYmd(e.end), -1));
+    $('#eEndDate').value = last > e.start ? last : e.start;
+    $('#eStart').value = '09:00'; $('#eEnd').value = '10:00';
+  } else {
+    $('#eDate').value = ymd(new Date(e.start));
+    $('#eStart').value = hhmm(e.start); $('#eEnd').value = hhmm(e.end);
+    $('#eEndDate').value = ymd(new Date(e.end));
+  }
+  $('#eLoc').value = e.location || '';
+  $('#eDesc').value = e.description || '';
+  setAllDay();
+  $('#evForm').querySelectorAll('input, textarea').forEach(x => x.disabled = !editable);
+  $('#eSave').hidden = !editable; $('#eDelete').hidden = !editable;
+  $('#eLoc').hidden = !editable && !e.location; $('#eDesc').hidden = !editable && !e.description;
+  $('#eAllDay').closest('label').hidden = !editable;
+  $('#eCancel').textContent = editable ? 'Avbryt' : 'Stäng';
+  $('#eHint').textContent = editable ? e.cal : e.recurring ? `${e.cal} · Återkommande – ändras i Google Kalender.` : `${e.cal} · Läses bara härifrån.`;
+  $('#eLinks').innerHTML = [
+    e.calId && `<a href="${esc(gcalLink(e))}" target="_blank" rel="noopener">Öppna i Google Kalender</a>`,
+    `<a href="${claudeUrl('Kalenderhändelse: ' + e.title + ' ' + (e.allDay ? e.start : new Date(e.start).toLocaleString('sv-SE')) + (e.location ? ', ' + e.location : '') + (e.description ? '\n' + e.description : ''))}" target="_blank" rel="noopener">Fråga Claude</a>`,
+  ].filter(Boolean).join('');
+  $('#evDlg').showModal();
+}
+function setAllDay() {
+  const a = $('#eAllDay').checked;
+  $('#eStart').hidden = a; $('#eEnd').hidden = a; $('#eDash').hidden = a; $('#eEndDate').hidden = !a;
+}
+$('#eAllDay').addEventListener('change', setAllDay);
+$('#eStart').addEventListener('change', () => {
+  // Flytta sluttiden med lika mycket som starten flyttas.
+  const e = EVENT; if (!e || e.allDay) return;
+  const dur = new Date(e.end) - new Date(e.start);
+  const s = new Date(`${$('#eDate').value}T${$('#eStart').value}`); if (isNaN(s)) return;
+  $('#eEnd').value = hhmm(new Date(s.getTime() + dur).toISOString());
+});
+$('#eCancel').addEventListener('click', () => $('#evDlg').close());
+
+$('#evForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const e = EVENT, before = { ...e };
+  const allDay = $('#eAllDay').checked, date = $('#eDate').value;
+  const p = { calendarId: e.calId, id: e.id, title: $('#eTitle').value.trim() || e.title, location: $('#eLoc').value, description: $('#eDesc').value, date };
+  if (allDay) { p.endDate = $('#eEndDate').value > date ? $('#eEndDate').value : ''; }
+  else { p.time = $('#eStart').value; p.endTime = $('#eEnd').value; if (p.endTime <= p.time) p.endDate = ymd(addDays(parseYmd(date), 1)); }
+  $('#evDlg').close();
+  Object.assign(e, { title: p.title, location: p.location, description: p.description, allDay, pending: true });
+  if (allDay) { e.start = date; e.end = ymd(addDays(parseYmd(p.endDate || date), 1)); }
+  else { e.start = new Date(`${date}T${p.time}`).toISOString(); e.end = new Date(`${p.endDate || date}T${p.endTime}`).toISOString(); }
+  render();
+  try { await api('updateEvent', p, true); toast('Sparat'); refresh(); }
+  catch (err) { Object.assign(e, before); render(); toast('Kunde inte spara – ' + err.message); }
+});
+
+$('#eDelete').addEventListener('click', async () => {
+  const e = EVENT; if (!confirm(`Ta bort "${e.title}"?`)) return;
+  $('#evDlg').close();
+  const keep = S.data.events, keepX = S.extraEvents;
+  S.data.events = keep.filter(x => x !== e); S.extraEvents = keepX.filter(x => x !== e); render();
+  try { await api('deleteEvent', { calendarId: e.calId, id: e.id }, true); toast('Borttagen'); }
+  catch (err) { S.data.events = keep; S.extraEvents = keepX; render(); toast('Kunde inte ta bort – ' + err.message); }
+});
+
+// ---------- person ----------
+function openPerson(email) {
+  const key = String(email).toLowerCase();
+  const ts = (S.data?.tasks || []).filter(t => contactOf(t)?.email.toLowerCase() === key);
+  const p = ts.length ? contactOf(ts[0]) : { name: email, email };
+  $('#pName').textContent = p.name;
+  $('#pMail').textContent = p.email;
+  $('#pBody').innerHTML = ts.length ? ts.map(taskRow).join('') : '<p class="empty">Inga öppna uppgifter.</p>';
+  $('#pLinks').innerHTML = `<a href="mailto:${esc(p.email)}">Skriv mejl</a><a href="${claudeUrl(`Person: ${p.name} <${p.email}>\nÖppna uppgifter:\n` + ts.map(t => '- ' + t.title).join('\n'))}" target="_blank" rel="noopener">Fråga Claude</a>`;
+  if (!$('#personDlg').open) $('#personDlg').showModal();
+}
+$('#pClose').addEventListener('click', () => $('#personDlg').close());
+// Klick på en uppgift i personvyn öppnar uppgiften ovanpå.
 
 // ---------- koppling ----------
 function openSetup() {

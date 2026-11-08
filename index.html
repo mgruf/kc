@@ -54,12 +54,58 @@
       <input type="time" id="addTime" hidden>
     </div>
     <select id="addCal" hidden></select>
+    <select id="addList" hidden></select>
     <p class="hint" id="addHint"></p>
     <div class="actions">
       <button type="button" class="ghost" id="addCancel">Avbryt</button>
       <button type="submit" id="addSave">Spara</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="taskDlg" class="sheet">
+  <form id="taskForm">
+    <input id="tTitle" class="big-input" placeholder="Uppgift" autocomplete="off" required>
+    <div class="row"><input type="date" id="tDue" aria-label="Datum"><select id="tList" aria-label="Lista"></select></div>
+    <div class="quick" id="tQuick">
+      <button type="button" data-due="0">Idag</button><button type="button" data-due="1">Imorgon</button><button type="button" data-due="mon">Måndag</button><button type="button" data-due="">Inget datum</button>
+    </div>
+    <input id="tContact" placeholder="Kontakt – namn &lt;adress&gt;" list="contactList" autocomplete="off">
+    <datalist id="contactList"></datalist>
+    <div class="tagpick" id="tTags"></div>
+    <textarea id="tNotes" rows="5" placeholder="Anteckning"></textarea>
+    <details id="tBlock">
+      <summary>Boka tid i kalendern</summary>
+      <div class="row"><input type="date" id="tbDate"><input type="time" id="tbTime">
+        <select id="tbLen"><option value="30">30 min</option><option value="60" selected>1 tim</option><option value="90">1½ tim</option><option value="120">2 tim</option><option value="180">3 tim</option><option value="240">4 tim</option></select></div>
+      <div class="row"><select id="tbCal"></select><button type="button" class="solid" id="tbAdd">Boka</button></div>
+    </details>
+    <div class="links" id="tLinks"></div>
+    <div class="actions"><button type="button" class="ghost danger" id="tDelete">Ta bort</button><span class="spacer"></span><button type="button" class="ghost" id="tCancel">Avbryt</button><button type="submit">Spara</button></div>
+  </form>
+</dialog>
+
+<dialog id="evDlg" class="sheet">
+  <form id="evForm">
+    <input id="eTitle" class="big-input" placeholder="Händelse" autocomplete="off" required>
+    <div class="row when">
+      <input type="date" id="eDate" aria-label="Dag">
+      <input type="time" id="eStart" aria-label="Start"><span id="eDash" class="dash">–</span><input type="time" id="eEnd" aria-label="Slut">
+      <input type="date" id="eEndDate" aria-label="Sista dag" hidden>
+    </div>
+    <label class="inline"><input type="checkbox" id="eAllDay"> Heldag</label>
+    <input id="eLoc" placeholder="Plats" autocomplete="off">
+    <textarea id="eDesc" rows="4" placeholder="Beskrivning"></textarea>
+    <p class="hint" id="eHint"></p>
+    <div class="links" id="eLinks"></div>
+    <div class="actions"><button type="button" class="ghost danger" id="eDelete">Ta bort</button><span class="spacer"></span><button type="button" class="ghost" id="eCancel">Avbryt</button><button type="submit" id="eSave">Spara</button></div>
+  </form>
+</dialog>
+
+<dialog id="personDlg" class="sheet">
+  <div class="phd"><div><h2 id="pName"></h2><div class="hint" id="pMail"></div></div><button type="button" class="ghost" id="pClose">Stäng</button></div>
+  <div id="pBody"></div>
+  <div class="links" id="pLinks"></div>
 </dialog>
 
 <dialog id="setupDlg">
