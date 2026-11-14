@@ -165,3 +165,5 @@
 .hempty { padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-3); margin-top: 8px; }
 .weekmark { margin-top: 30px; font-size: 11.5px; font-weight: 600; letter-spacing: .08em; color: var(--ink-3); text-transform: uppercase; }
 .btn.more { margin: 24px 0; }
+
+.item.task .title { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

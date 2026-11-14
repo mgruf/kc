@@ -10,6 +10,8 @@ const COMMANDS = [
   ['Ny anteckning i Notes', () => openAdd('note')],
   ['Skapa dagens dagsanteckning', async () => { try { const r = await api('dailyNote', { date: todayStr() }, true); toast(r.exists ? 'Finns redan' : 'Köad – skapas i Notes inom 5 min'); } catch (e) { toast(e.message); } }],
   ['Ny samling (databas)', () => go('samling/_ny')],
+  ['Lägg till person i projekt', () => import('./views/team.js').then(m => m.openTeamAdd({}))],
+  ['Läs in manus', () => { const p = projects().find(x => x.cfg); go('projekt/' + encodeURIComponent(p ? p.tag : '') + '/manus'); }],
   ['Nytt projekt', () => go('samling/Projekt/ny')],
   ['Gå till Idag', () => go('idag')], ['Gå till Kalender – vecka', () => go('kalender/vecka')], ['Gå till Kalender – dag', () => go('kalender/dag')], ['Gå till Kalender – månad', () => go('kalender/manad')],
   ['Gå till Uppgifter', () => go('uppgifter')], ['Gå till Anteckningar', () => go('anteckningar')], ['Gå till Personer', () => go('personer')], ['Gå till Horisont', () => go('horisont')], ['Gå till Projekt', () => go('projekt')],

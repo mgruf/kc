@@ -54,11 +54,11 @@ export async function api(action, params = {}, post = false, src = 'jobb') {
 // Slår ihop källorna. Varje sak får _src så att ändringar går till rätt konto.
 export function merge() {
   const list = sources();
-  const out = { tasks: [], events: [], notes: [], birthdays: [], projects: [], taskLists: [], writableCalendars: [], collections: [], summaries: {}, layouts: {}, links: {}, pins: [], weather: null, generated: null };
+  const out = { tasks: [], doneTasks: [], calendars: [], events: [], notes: [], birthdays: [], projects: [], taskLists: [], writableCalendars: [], collections: [], summaries: {}, layouts: {}, links: {}, pins: [], weather: null, generated: null };
   list.forEach((s, i) => {
     const d = S.raw[s.id]; if (!d) return;
     const tag = x => Object.assign(x, { _src: s.id });
-    ['tasks', 'events', 'notes', 'birthdays', 'projects', 'taskLists', 'writableCalendars'].forEach(k => (d[k] || []).forEach(x => out[k].push(tag(x))));
+    ['tasks', 'doneTasks', 'calendars', 'events', 'notes', 'birthdays', 'projects', 'taskLists', 'writableCalendars'].forEach(k => (d[k] || []).forEach(x => out[k].push(tag(x))));
     (d.collections || []).forEach(c => out.collections.push({ ...c, _src: s.id, rows: (c.rows || []).map(tag) }));
     Object.assign(out.summaries, d.summaries || {}); Object.assign(out.layouts, d.layouts || {}); Object.assign(out.links, d.links || {});
     if (i === 0) { out.pins = d.pins || []; out.weather = d.weather; out.generated = d.generated; out.dbUrl = d.dbUrl; }

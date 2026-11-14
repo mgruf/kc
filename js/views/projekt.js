@@ -6,8 +6,10 @@ import {
 import { taskRow, eventRow, noteRow, section, empty, head, openTask, openEvent } from '../ui.js';
 import { renderProduction, productionSummary } from './produktion.js';
 import { renderCollectionView } from './samling.js';
+import { renderScript } from './manus.js';
+import { renderTeam, teamFor, openTeamAdd } from './team.js';
 
-const TABS = [['oversikt', 'Översikt'], ['produktion', 'Produktion'], ['uppgifter', 'Uppgifter'], ['kalender', 'Kalender'], ['anteckningar', 'Anteckningar'], ['personer', 'Personer'], ['filer', 'Filer'], ['samlingar', 'Samlingar']];
+const TABS = [['oversikt', 'Översikt'], ['produktion', 'Produktion'], ['manus', 'Manus'], ['team', 'Team'], ['uppgifter', 'Uppgifter'], ['kalender', 'Kalender'], ['anteckningar', 'Anteckningar'], ['filer', 'Filer'], ['samlingar', 'Samlingar']];
 let editing = false;
 
 export function render(el, args) {
@@ -58,17 +60,20 @@ function page(el, p, tab, rest) {
   const c = p.cfg || {};
   const hasProd = !!(c.hasProduction || c.shoot || c.sceneSheetUrl);
   const tabs = TABS.filter(([k]) => k !== 'produktion' || hasProd);
-  const counts = { uppgifter: p.tasks.length, anteckningar: p.notes.length, kalender: p.events.filter(e => evDay(e) >= todayStr()).length, samlingar: p.rows.length };
+  const counts = { team: safeCount(() => teamFor(p.tag).length), uppgifter: p.tasks.length, anteckningar: p.notes.length, kalender: p.events.filter(e => evDay(e) >= todayStr()).length, samlingar: p.rows.length };
   el.innerHTML = `<div class="crumb"><a href="#/projekt">Projekt</a></div>` +
     head(`<span class="ptag" style="--tc:${tagColor(p.tag)}">${esc(p.tag.slice(1))}</span>${esc(p.name)}`, [c.phase, c.client].filter(Boolean).map(esc).join(' · '),
-      `${tab === 'oversikt' ? `<button class="btn" data-pedit>${editing ? 'Klar' : 'Anpassa'}</button>` : ''}<button class="btn" data-ptask>+ Uppgift</button>${c.rowId ? `<a class="btn" href="#/samling/Projekt/${encodeURIComponent(c.rowId)}">Inställningar</a>` : ''}`) +
+      `<button class="btn" data-pteam>+ Person</button>${tab === 'oversikt' ? `<button class="btn" data-pedit>${editing ? 'Klar' : 'Anpassa'}</button>` : ''}<button class="btn" data-ptask>+ Uppgift</button>${c.rowId ? `<a class="btn" href="#/samling/Projekt/${encodeURIComponent(c.rowId)}">Inställningar</a>` : ''}`) +
     `<nav class="ptabs">${tabs.map(([k, l]) => `<a href="#/projekt/${encodeURIComponent(p.tag)}/${k}" class="${k === tab ? 'on' : ''}">${l}${counts[k] ? `<span>${counts[k]}</span>` : ''}</a>`).join('')}</nav>
     <div class="ptab" id="ptab"></div>`;
   const box = $('#ptab', el);
   el.querySelector('[data-ptask]').onclick = () => openTask(null, { tag: p.tag });
+  el.querySelector('[data-pteam]').onclick = () => openTeamAdd({ tag: p.tag });
   el.querySelector('[data-pedit]')?.addEventListener('click', () => { if (editing) saveLayout(p); editing = !editing; emit('render'); });
   switch (tab) {
     case 'produktion': return renderProduction(box, p, rest[0] || 'oversikt', rest.slice(1));
+    case 'manus': return renderScript(box, p, rest);
+    case 'team': return renderTeam(box, p, rest);
     case 'uppgifter': {
       const open = p.tasks.slice().sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
       const g = { fire: open.filter(t => isFire(t)), soon: open.filter(t => !isFire(t) && t.due), wait: open.filter(t => !t.due && t.waiting), none: open.filter(t => !t.due && !t.waiting) };
@@ -157,9 +162,10 @@ const W = {
   files:    { title: 'Filer', size: 'm' },
   scripts:  { title: 'Manusversioner', size: 's', when: p => p.cfg?.scripts?.length },
   decisions:{ title: 'Beslut', size: 'm' },
+  team:     { title: 'Team', size: 'm' },
   notes:    { title: 'Anteckningar', size: 'm' },
 };
-const DEFAULT_JOBB = ['summary', 'shoot', 'upcoming', 'tasks', 'waiting', 'timeline', 'budget', 'decisions', 'files', 'scripts', 'notes'];
+const DEFAULT_JOBB = ['summary', 'shoot', 'upcoming', 'tasks', 'waiting', 'team', 'timeline', 'budget', 'decisions', 'files', 'scripts', 'notes'];
 const DEFAULT_PRIVAT = ['summary', 'upcoming', 'tasks', 'notes', 'files'];
 function layoutFor(p) {
   const saved = (S.data?.layouts || {})[p.tag]; if (saved?.length) return saved.filter(w => W[w.id]);
@@ -206,7 +212,7 @@ function widget(id, p) {
   const t = todayStr(), c = p.cfg || {};
   switch (id) {
     case 'summary': return `<textarea data-summary placeholder="Var står projektet? Första raden syns på projektkortet.">${esc(S.data?.summaries?.[p.tag] || '')}</textarea>`;
-    case 'shoot': return productionSummary(p) + `<a class="more-link" href="#/projekt/${encodeURIComponent(p.tag)}/produktion">Produktion →</a>`;
+    case 'shoot': return productionSummary(p);
     case 'upcoming': {
       const items = [
         ...p.events.filter(e => evDay(e) >= t).map(e => ({ d: evDay(e), html: eventRow(e, { day: true }) })),
@@ -232,6 +238,13 @@ function widget(id, p) {
     }
     case 'scripts': return (c.scripts || []).map(s => { const m = /^(\d{6})_?(.*)$/.exec(s.version) || []; return `<div class="kv"><span>${esc(s.film)}</span><b>${esc(m[2] || s.version)}${m[1] ? ` · ${shortDate('20' + m[1].slice(0, 2) + '-' + m[1].slice(2, 4) + '-' + m[1].slice(4))}` : ''}</b></div>`; }).join('') || empty('Inga manusversioner.');
     case 'budget': return budgetHtml(c.budget);
+    case 'team': {
+      let rows = []; try { rows = teamFor(p.tag) || []; } catch {}
+      const by = {}; (Array.isArray(rows) ? rows : []).forEach(r => { const k = r['Typ'] || 'Övrigt'; by[k] = (by[k] || 0) + 1; });
+      const ks = Object.keys(by);
+      return (ks.length ? ks.map(k => `<div class="kv"><span>${esc(k)}</span><b>${by[k]}</b></div>`).join('') : empty('Ingen kopplad än.'))
+        + `<div class="vact" style="margin-top:10px"><button class="btn" data-team-add='${esc(JSON.stringify({ tag: p.tag }))}'>+ Person</button><a class="more-link" style="margin:0" href="#/projekt/${encodeURIComponent(p.tag)}/team">Hela teamet</a></div>`;
+    }
     case 'timeline': return timelineHtml(p);
   }
   return '';
@@ -280,3 +293,5 @@ export function context(args) {
   p.tasks.slice(0, 20).forEach(x => lines.push(`- Uppgift: ${x.title}${x.due ? ' (' + x.due + ')' : ''}`));
   return lines.join('\n');
 }
+
+function safeCount(fn) { try { return fn(); } catch { return 0; } }

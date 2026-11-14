@@ -1,11 +1,11 @@
 // KC: sidan hämtas alltid färsk när nätet finns (så att alla moduler är samma version),
 // och sparas så att KC öppnas även utan nät. Data hämtas alltid av appen själv.
-const V = 'kc-v7';
+const V = 'kc-v8';
 const SHELL = ['./', 'index.html', 'quotes.js', 'manifest.webmanifest', 'icons/icon.svg',
-  'css/base.css', 'css/views.css', 'css/kalender.css', 'css/produktion.css', 'css/samling.css',
-  'js/core.js', 'js/ui.js', 'js/main.js', 'js/search.js',
+  'css/base.css', 'css/views.css', 'css/kalender.css', 'css/produktion.css', 'css/samling.css', 'css/dashboard.css', 'css/uppgifter.css', 'css/manus.css',
+  'js/core.js', 'js/ui.js', 'js/main.js', 'js/search.js', 'js/quickparse.js', 'js/recur.js',
   'js/views/idag.js', 'js/views/kalender.js', 'js/views/uppgifter.js', 'js/views/anteckningar.js', 'js/views/personer.js',
-  'js/views/projekt.js', 'js/views/produktion.js', 'js/views/samling.js', 'js/views/horisont.js'];
+  'js/views/projekt.js', 'js/views/produktion.js', 'js/views/samling.js', 'js/views/horisont.js', 'js/views/manus.js', 'js/views/team.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k))))); self.clients.claim(); });
 self.addEventListener('fetch', e => {

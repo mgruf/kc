@@ -4,6 +4,7 @@ import {
   tagHtml, cleanTitle, TAG_RE, isDateTag, modeCls, isFire, isWaitingLong, waitedDays, contactOf, contactLine, personIn,
   mailHref, firstName, initials, people, knownTags, gcalLink, claudeUrl, notesUrl, go, merge, store, sources, setSources,
 } from './core.js';
+import { afterComplete } from './recur.js';
 
 // ---------- rader ----------
 export function taskRow(t, opt = {}) {
@@ -403,7 +404,7 @@ export async function toggleDone(id) {
   const t = (S.data?.tasks || []).find(x => x.id === id); if (!t) return;
   const done = !S.done[id];
   S.done[id] = done; emit('render');
-  try { await api('complete', { listId: t.listId, taskId: id, done }, true, t._src); }
+  try { await api('complete', { listId: t.listId, taskId: id, done }, true, t._src); if (done) afterComplete(t); }
   catch { delete S.done[id]; emit('render'); toast('Kunde inte spara – försök igen'); }
 }
 

@@ -4,6 +4,7 @@ import {
   personIn, projects, cleanTitle, claudeUrl, relTime, shortDate, ymd,
 } from '../core.js';
 import { taskRow, eventRow, noteRow, section, empty, head, pref, setPref, openTask } from '../ui.js';
+import { personProjects } from './team.js';
 
 const av = (p, size = 36) => `<span class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size * .36)}px">${p.photo ? `<img src="${esc(p.photo)}" alt="">` : esc(initials(p.name))}</span>`;
 
@@ -54,6 +55,7 @@ function page(el, key) {
     </div><div class="vact">${p.id ? '<button class="btn" data-edit>Redigera</button>' : '<button class="btn" data-save>Spara som kontakt</button>'}<button class="btn solid" data-ptask>+ Uppgift</button><a class="btn" href="${claudeUrl(`Person: ${p.name} <${p.email}>${p.org ? ', ' + p.org : ''}\nÖppna uppgifter:\n` + ts.map(t => '- ' + t.title).join('\n'))}" target="_blank" rel="noopener">Fråga Claude</a></div></div>
     ${p.notes ? `<div class="pnote">${esc(p.notes)}</div>` : ''}
     <div class="pgrid"><div>
+      ${personProjects(p)}
       ${section('ptasks', 'Öppna uppgifter', ts.length, ts.length ? ts.map(t => taskRow(t)).join('') : empty('Inga öppna uppgifter.'))}
       ${roles.length ? section('proles', 'Roller i produktion', roles.length, roles.map(({ tag, r }) => `<a class="item" href="#/projekt/${encodeURIComponent(tag)}/produktion/roller"><div class="glyph">◆</div><div class="main"><div class="title">${esc(r.name)} <span class="tags">${tagHtml([tag])}</span></div><div class="sub">${r.days} dagar<i class="sep">·</i>${esc(shortDate(r.first))}–${esc(shortDate(r.last))}</div></div></a>`).join('')) : ''}
       ${rows.length ? section('prows', 'I samlingar', rows.length, rows.map(({ c, r }) => `<a class="item" href="#/samling/${encodeURIComponent(c.name)}/${encodeURIComponent(r._id)}"><div class="glyph">▤</div><div class="main"><div class="title">${esc(r[c.fields[0]?.name] || '(utan namn)')}</div><div class="sub">${esc(c.name)}</div></div></a>`).join('')) : ''}

@@ -2,8 +2,10 @@
    All data kommer från scenarket och projektmappen via Apps Script (action 'production'). */
 import {
   S, $, esc, ymd, parseYmd, addDays, todayStr, shortDate, dayLabel, week, relTime, DAYS, MONTHS,
-  loadProduction, emit,
+  loadProduction, emit, personIn,
 } from '../core.js';
+import { loadLatestScripts, eighthsStr } from './manus.js';
+import { teamFor } from './team.js';
 
 const SUBS = [['oversikt', 'Översikt'], ['dagar', 'Dagar'], ['scener', 'Scener'], ['roller', 'Roller'], ['platser', 'Platser'], ['callsheets', 'Callsheets'], ['dokument', 'Dokument']];
 const base = p => '#/projekt/' + encodeURIComponent(p.tag) + '/produktion';
@@ -49,8 +51,14 @@ export function renderProduction(el, p, sub, args = []) {
   if (!pr) body = `<div class="prod-loading"><span class="spin"></span>Läser scenarket och projektmappen…</div>`;
   else if (pr.error) body = `<div class="prod-err"><b>Kunde inte läsa produktionen.</b><br>${esc(pr.error)}${p.cfg?.sceneSheetUrl ? `<br><a href="${esc(p.cfg.sceneSheetUrl)}" target="_blank" rel="noopener">Öppna scenarket</a>` : ''}</div>`;
   else {
+    // Saknas scenark men det finns inlästa manus: scener, roller och platser ur senaste manusversionerna.
+    let v = pr;
+    if (!(pr.scenes || []).length && ['scener', 'roller', 'platser', 'oversikt'].includes(sub)) {
+      if (pr.manus === undefined && !pr.manusLoading) { pr.manusLoading = true; loadLatestScripts(p.tag, p.cfg?._src).then(m => { pr.manus = m; pr.manusLoading = false; emit('render'); }).catch(() => { pr.manus = []; pr.manusLoading = false; }); }
+      if (pr.manus?.length) v = manusView(pr);
+    }
     const f = { oversikt, dagar, scener, roller, platser, callsheets, dokument }[sub];
-    body = f(p, pr, args);
+    body = (v !== pr && sub !== 'oversikt' ? `<p class="hint prod-manus-note">Ur inlästa manus (${pr.manus.map(m => esc((m.film || 'Manus') + ' ' + m.version)).join(', ')}). <a href="#/projekt/${encodeURIComponent(p.tag)}/manus">Manusfliken</a></p>` : '') + f(p, v, args);
   }
   el.innerHTML = `<div class="prod">${tabs}<div class="prod-body">${body}</div></div>`;
   bindOnce();
@@ -226,7 +234,7 @@ function scener(p, pr, args) {
       <select data-pf="place">${opt(STATE.place, places, 'Alla platser')}</select>
     </div>
     <div class="prod-scenes ${sel ? 'has-sel' : ''}">
-      <div class="prod-tablewrap" id="prodSceneTable" data-tag="${esc(p.tag)}">${sceneTable(p, pr)}</div>
+      <div class="prod-tablewrap" id="prodSceneTable" data-ptag="${esc(p.tag)}">${sceneTable(p, pr)}</div>
       ${sel ? sceneDetail(p, pr, sel) : ''}
     </div>`;
 }
@@ -283,7 +291,7 @@ function sceneDetail(p, pr, s) {
 function roller(p, pr) {
   const days = pr.days || [];
   const roles = pr.roles || [];
-  if (!roles.length) return '<p class="empty">Inga roller i scenarket.</p>';
+  if (!roles.length) return '<p class="empty">Inga roller i scenarket eller manuset.</p>';
   const work = {};
   (pr.strips || []).forEach(s => (s.cast || []).forEach(c => (work[up(c)] ||= new Set()).add(s.date)));
   const t = todayStr();
@@ -291,7 +299,7 @@ function roller(p, pr) {
     ${roles.map(r => { const w = work[up(r.code)] || new Set(); return `<tr>
       <td><span class="code">${esc(r.code)}</span></td>
       <td>${esc(cap(r.name || ''))}${r.note ? `<small>${esc(r.note)}</small>` : ''}</td>
-      <td>${r.actor ? esc(r.actor) : '<span class="muted">–</span>'}</td>
+      <td>${actorCell(p, r)}</td>
       <td class="r tnum">${r.days || w.size}</td>
       <td class="c-date tnum">${r.first ? esc(shortDate(r.first)) + '–' + esc(shortDate(r.last)) : ''}</td>
       <td class="c-dots"><span class="dots">${days.map(d => `<i class="${w.has(d.date) ? 'on' : ''} ${d.date < t ? 'past' : ''} ${d.date === t ? 'today' : ''}" title="Dag ${d.day} · ${esc(shortDate(d.date))}"></i>`).join('')}</span></td>
@@ -391,7 +399,7 @@ function bindOnce() {
     }
     const tr = e.target.closest('.prod [data-pscene]');
     if (tr) {
-      const tag = tr.closest('[data-tag]')?.dataset.tag;
+      const tag = tr.closest('[data-ptag]')?.dataset.ptag;
       if (tag) location.hash = '#/projekt/' + encodeURIComponent(tag) + '/produktion/scener/' + encodeURIComponent(tr.dataset.pscene);
     }
   });
@@ -403,6 +411,29 @@ function bindOnce() {
 }
 function redrawTable() {
   const box = $('#prodSceneTable'); if (!box) return;
-  const pr = S.prod[box.dataset.tag]; if (!pr) return;
-  box.innerHTML = sceneTable({ tag: box.dataset.tag }, pr);
+  const pr0 = S.prod[box.dataset.ptag]; if (!pr0) return;
+  const pr = (pr0.scenes || []).length ? pr0 : manusView(pr0);
+  box.innerHTML = sceneTable({ tag: box.dataset.ptag }, pr);
+}
+
+// ---------- manus som datakälla (när scenark saknas) ----------
+/** Gör om inlästa manus till samma form som scenarket ger. */
+function manusView(pr) {
+  const ms = pr.manus || [];
+  const scenes = [], roles = {}, locs = {};
+  ms.forEach(m => (m.scenes || []).forEach(s => {
+    scenes.push({ film: m.film || '', scene: s.n, version: m.version, heading: s.heading, ie: s.ie, place: s.place, tod: s.tod, pages: eighthsStr(s.eighths), page: s.page, cast: (s.chars || []).join(', '), omitted: !!s.omitted, parts: 0, status: '' });
+    if (s.omitted) return;
+    (s.chars || []).forEach(c => { const r = roles[c] ||= { code: '', name: c, actor: '', strips: 0, days: 0, first: '', last: '', note: '' }; r.strips++; });
+    const k = String(s.place || '').toUpperCase(); const l = locs[k] ||= { place: s.place || '(utan plats)', address: '', dates: [], strips: 0 }; l.strips++;
+  }));
+  Object.values(roles).forEach(r => r.note = r.strips + ' scener');
+  return { ...pr, scenes, roles: Object.values(roles).sort((a, b) => b.strips - a.strips), locations: Object.values(locs).sort((a, b) => b.strips - a.strips), fromManus: true };
+}
+/** Skådespelare: scenarkets namn, annars Team-raden med Typ=Skådespelare och Roll = rollnamnet; annars knapp Tillsätt. */
+function actorCell(p, r) {
+  const t = teamFor(p.tag).find(x => /skådespel/i.test(x['Typ'] || '') && String(x['Roll'] || '').trim().toUpperCase() === String(r.name || '').trim().toUpperCase());
+  if (t) { const pp = personIn(t['Person']) || { name: t['Person'], email: '' }; return `<a href="#/person/${encodeURIComponent(String(pp.email || pp.name).toLowerCase())}">${esc(pp.name)}</a>`; }
+  if (r.actor) return esc(r.actor);
+  return `<button class="btn prod-cast" data-team-add='${esc(JSON.stringify({ tag: p.tag, typ: 'Skådespelare', roll: cap(r.name || r.code || '') }))}'>Tillsätt</button>`;
 }

@@ -29,13 +29,13 @@
 .v-kalender .kdh { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; padding: 8px 8px 7px; border-left: 1px solid var(--line); min-width: 0; }
 .v-kalender .kdh a { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
 .v-kalender .kdh .wd { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 600; }
-.v-kalender .kdh .dn { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.v-kalender .kdh.today .dn { color: var(--fire); }
+.v-kalender .kdh .kdn { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.v-kalender .kdh.today .kdn { color: #fff; background: var(--fire); border-radius: 999px; padding: 0 7px; font-size: 16px; line-height: 24px; }
 .v-kalender .kdh .wx { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .v-kalender .kallday .kgut { padding-top: 6px; font-size: 10px; }
 .v-kalender .kac { border-left: 1px solid var(--line); padding: 4px 3px; display: flex; flex-direction: column; gap: 3px; min-height: 28px; min-width: 0; }
 .v-kalender .kad { display: block; font-size: 11.5px; line-height: 1.35; padding: 2px 6px; border-radius: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 0; margin: 0;
-  background: color-mix(in srgb, var(--tc, var(--ink-3)) 12%, var(--surface)); color: var(--ink); box-shadow: inset 2px 0 0 var(--tc, var(--ink-3)); cursor: pointer; }
+  background: color-mix(in srgb, var(--tc, var(--ink-3)) 17%, var(--surface)); color: var(--ink); box-shadow: inset 3px 0 0 var(--tc, var(--ink-3)); cursor: pointer; }
 .v-kalender .kad.item { gap: 0; }
 .v-kalender .kad.shoot { font-weight: 600; color: var(--tc); }
 .v-kalender .kad.bday { background: transparent; box-shadow: none; color: var(--ink-2); cursor: default; padding-left: 2px; }
@@ -46,24 +46,27 @@
 .v-kalender .kbody { position: relative; display: grid; grid-template-columns: var(--gut) minmax(0, 1fr); }
 .v-kalender .khours { position: relative; }
 .v-kalender .khr { height: 48px; position: relative; }
+.v-kalender .khr.off span { opacity: .55; }
 .v-kalender .khr span { position: absolute; top: -7px; right: 6px; font-size: 10.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .v-kalender .kcols { position: relative; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   background-image: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 48px), repeating-linear-gradient(to bottom, transparent 0 24px, color-mix(in srgb, var(--line) 45%, transparent) 24px 25px, transparent 25px 48px); }
-.v-kalender .kcol { position: relative; border-left: 1px solid var(--line); cursor: copy; }
+.v-kalender .kcols { grid-template-rows: 100%; height: 100%; }
+/* .kcol används också av uppgiftstavlan (views.css) – nollställ det här */
+.v-kalender .kcol { position: relative; display: block; flex: none; padding: 0; border-radius: 0; max-height: none; scroll-snap-align: none; background: transparent; border-left: 1px solid var(--line); cursor: copy; height: 100%; min-height: 100%; }
 .v-kalender .kcol.we { background: color-mix(in srgb, var(--sunk) 55%, transparent); }
-.v-kalender .kcol.today { background: color-mix(in srgb, var(--fire) 2.5%, transparent); }
+.v-kalender .kcol.today { background: transparent; }
 .v-kalender .know { position: absolute; left: -1px; right: 0; height: 0; border-top: 1.5px solid var(--fire); z-index: 3; pointer-events: none; }
 .v-kalender .know::before { content: ""; position: absolute; left: -4px; top: -4.5px; width: 7px; height: 7px; border-radius: 50%; background: var(--fire); }
 
 /* händelser i rutnätet */
 .v-kalender .kev.item { position: absolute; display: block; padding: 3px 6px 3px 8px; margin: 0; border: 0; border-radius: 6px; overflow: hidden; z-index: 2; cursor: pointer;
-  background: color-mix(in srgb, var(--tc) 11%, var(--surface)); box-shadow: inset 2.5px 0 0 var(--tc), 0 0 0 1px color-mix(in srgb, var(--tc) 20%, transparent); font-size: 12px; line-height: 1.3; }
+  background: color-mix(in srgb, var(--tc) 17%, var(--surface)); box-shadow: inset 3px 0 0 var(--tc), 0 0 0 1px var(--surface); font-size: 12px; line-height: 1.3; color: var(--ink); }
 .v-kalender .kev.can { cursor: grab; touch-action: none; }
 .v-kalender .kev.can:active { cursor: grabbing; }
 .v-kalender .kev .kt { font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.v-kalender .kev .km { color: var(--ink-2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.v-kalender .kev .km { color: color-mix(in srgb, var(--ink) 70%, var(--tc)); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .v-kalender .kev.short { padding-top: 1px; }
-.v-kalender .kev.past { opacity: .5; }
+.v-kalender .kev.past { opacity: .6; }
 .v-kalender .kev.dim { opacity: .3; }
 .v-kalender .kev.dragging { opacity: .35; }
 .v-kalender .kres { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; cursor: ns-resize; }
@@ -83,7 +86,7 @@
 @media (max-width: 899px) { .v-kalender .kplan .sec { margin-top: 20px; } }
 
 /* ---------- månad ---------- */
-.v-kalender .kmonth { display: grid; grid-template-columns: 34px repeat(7, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); }
+.v-kalender .kmonth { display: grid; grid-template-columns: 34px repeat(var(--mcols, 7), minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); }
 .v-kalender .kmh { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 600; padding: 8px 8px 6px; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .v-kalender .kmw { font-size: 10.5px; color: var(--ink-3); padding: 8px 4px 0 0; text-align: right; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .v-kalender .kmw.h { border-top: 0; border-bottom: 1px solid var(--line); }
@@ -102,7 +105,7 @@
 .v-kalender .kml.more { box-shadow: none; color: var(--ink-3); }
 .v-kalender .kml.dim { opacity: .4; }
 @media (max-width: 699px) {
-  .v-kalender .kmonth { grid-template-columns: 22px repeat(7, minmax(0, 1fr)); }
+  .v-kalender .kmonth { grid-template-columns: 22px repeat(var(--mcols, 7), minmax(0, 1fr)); }
   .v-kalender .kmc { min-height: 64px; padding: 4px 2px; }
   .v-kalender .kml { font-size: 0; height: 4px; padding: 0; margin: 1px 2px; border-radius: 2px; background: var(--tc, var(--ink-3)); box-shadow: none; }
   .v-kalender .kml.more { font-size: 9.5px; height: auto; background: none; }
@@ -118,7 +121,107 @@
   .v-kalender .kgrid { --gut: 40px; border-radius: 10px; }
   .v-kalender .kwrap.vecka .kdh { flex-direction: column; align-items: center; padding: 6px 2px; }
   .v-kalender .kwrap.vecka .kdh a { flex-direction: column; align-items: center; gap: 0; }
-  .v-kalender .kwrap.vecka .kdh .dn { font-size: 15px; }
+  .v-kalender .kwrap.vecka .kdh .kdn { font-size: 15px; }
   .v-kalender .kwrap.vecka .kev .km { display: none; }
   .v-kalender .kwrap.vecka .kev { font-size: 10.5px; padding: 2px 3px 2px 5px; }
 }
+
+/* ---------- Sikt-lager: verktyg, set, snabbinmatning ---------- */
+.v-kalender .khead2 { padding-bottom: 8px; }
+.v-kalender .ktools { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.v-kalender .kqwrap { position: relative; }
+.v-kalender .kq { width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; outline: none; }
+.v-kalender .kq:focus { border-color: var(--line-2); box-shadow: 0 0 0 3px var(--sel); }
+.v-kalender .kqprev:empty { display: none; }
+.v-kalender .kqprev { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 7px 14px 0; font-size: 13px; color: var(--ink-2); }
+.v-kalender .kqprev b { color: var(--ink); font-weight: 600; }
+.v-kalender .kqprev .kqcal { color: var(--ink-3); }
+.v-kalender .kqprev kbd { margin-left: auto; }
+.v-kalender .kbtns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.v-kalender .ksets { display: flex; gap: 4px; flex-wrap: wrap; margin-right: auto; }
+.v-kalender .ksets .chip { padding: 5px 10px; font-size: 12.5px; }
+.v-kalender .kbtns .btn { padding: 5px 10px; font-size: 12.5px; }
+.v-kalender .kbtns .btn.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.v-kalender .kslotbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border: 1px dashed var(--line-2); border-radius: 10px; font-size: 13px; color: var(--ink-2); }
+.v-kalender .kslotbar span { margin-right: auto; }
+.v-kalender .kslotbar .chip { padding: 4px 9px; font-size: 12px; }
+@media (max-width: 899px) { .v-kalender .ksets { width: 100%; margin-right: 0; } }
+
+/* panel med kalendrar och set */
+.v-kalender .kmainwrap { display: block; }
+.v-kalender .kal.withpanel .kmainwrap { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 20px; align-items: start; }
+.kpanel { font-size: 13.5px; }
+.v-kalender .kpanel { position: sticky; top: 16px; }
+.kpanel .kp-sec { margin-bottom: 16px; }
+.kpanel .kp-h { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+.kpanel .kcal { display: flex; align-items: center; gap: 8px; padding: 4px 2px; cursor: pointer; }
+.kpanel .kcal input { width: 15px; height: 15px; margin: 0; accent-color: var(--ink); }
+.kpanel .kcal i { width: 9px; height: 9px; border-radius: 3px; background: var(--tc); flex: none; }
+.kpanel .kcal span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kpanel .kcal small { color: var(--ink-3); }
+.kpanel .kp-set { display: flex; align-items: center; border-radius: 7px; }
+.kpanel .kp-set button:first-child { flex: 1; text-align: left; padding: 5px 8px; border-radius: 7px; }
+.kpanel .kp-set.on button:first-child { background: var(--surface); box-shadow: 0 0 0 1px var(--line); font-weight: 500; }
+.kpanel .kp-set .x { color: var(--ink-3); padding: 0 6px; }
+.kpanel .kp-add { font-size: 12.5px; color: var(--ink-3); padding: 6px 8px; }
+.kpanel .kp-hint { font-size: 12px; color: var(--ink-3); margin: 0; }
+dialog.kal-sheet .kpanel { max-height: 65vh; overflow-y: auto; }
+
+/* ihopslagna händelser */
+.v-kalender .kcopies { display: inline-block; margin-left: 5px; font-size: 9.5px; font-weight: 600; line-height: 14px; min-width: 14px; padding: 0 3px; text-align: center; border-radius: 4px; background: color-mix(in srgb, var(--tc, var(--ink-3)) 35%, var(--surface)); color: var(--ink); vertical-align: 1px; }
+
+/* lediga tider och nya block */
+.v-kalender .kslot { position: absolute; left: 3px; right: 3px; z-index: 3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; border: 1.5px dashed var(--ink-2); border-radius: 6px; background: color-mix(in srgb, var(--surface) 80%, transparent); font-size: 11px; font-weight: 500; color: var(--ink); text-align: left; padding: 3px 6px; cursor: pointer; }
+.v-kalender .kslot:hover { background: var(--surface); border-style: solid; }
+.v-kalender .kghost.new { border-style: solid; background: color-mix(in srgb, var(--ink) 8%, var(--surface)); color: var(--ink); }
+.v-kalender .kslot-row { width: 100%; text-align: left; border-top: 1px dashed var(--line-2) !important; }
+
+/* agenda */
+.v-kalender .kwrap.agenda { display: grid; gap: 20px; }
+@media (min-width: 900px) { .v-kalender .kwrap.agenda { grid-template-columns: minmax(0, 1fr) 270px; align-items: start; } }
+.v-kalender .kag { display: grid; grid-template-columns: 1fr; border-top: 1px solid var(--line); padding: 12px 0; }
+@media (min-width: 700px) { .v-kalender .kag { grid-template-columns: 130px minmax(0, 1fr); gap: 16px; } }
+.v-kalender .kag-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding-top: 8px; }
+@media (min-width: 700px) { .v-kalender .kag-h { flex-direction: column; gap: 0; } }
+.v-kalender .kag-h b { font-size: 22px; font-weight: 650; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.v-kalender .kag-h span { font-size: 12px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.v-kalender .kag-h small { font-size: 12px; color: var(--ink-3); }
+.v-kalender .kag.today .kag-h b { color: var(--fire); }
+.v-kalender .kag.emptyday .kag-b .empty { padding: 8px 0 0; }
+.v-kalender .kagev { box-shadow: inset 3px 0 0 var(--tc); padding-left: 10px; }
+.v-kalender .kagev:first-child { border-top: 0; }
+
+/* detaljpanel (popover på dator, ark på mobil) */
+.kdetail { position: fixed; z-index: 40; width: 340px; max-height: calc(100dvh - 24px); overflow-y: auto; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,.18); padding: 14px 16px 14px 18px; font-size: 14px; }
+.kdetail.sheet { left: 8px; right: 8px; bottom: calc(var(--tabh) + env(safe-area-inset-bottom) + 8px); width: auto; max-height: 70dvh; }
+.kdetail .kd-bar { position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; border-radius: 0 3px 3px 0; background: var(--tc); }
+.kdetail .kd-h { display: flex; align-items: flex-start; gap: 8px; }
+.kdetail h3 { flex: 1; margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -.01em; line-height: 1.3; }
+.kdetail .kd-x { font-size: 20px; line-height: 1; color: var(--ink-3); padding: 0 2px; }
+.kdetail .kd-when { margin-top: 4px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.kdetail .kd-tags { margin-top: 6px; }
+.kdetail .kd-tags .tags { margin-left: 0; }
+.kdetail .kd-cal { margin-top: 6px; font-size: 12.5px; color: var(--ink-3); }
+.kdetail .kd-join { margin-top: 12px; }
+.kdetail .kd-loc { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.kdetail .kd-maps { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 5px; font-size: 12.5px; }
+.kdetail .kd-maps a, .kdetail .kd-desc a, .kdetail .kd-loc a { border-bottom: 1px solid var(--line-2); }
+.kdetail .kd-desc { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13.5px; color: var(--ink-2); max-height: 220px; overflow-y: auto; }
+.kdetail .kd-act { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.kdetail .kd-act .btn { padding: 6px 11px; }
+
+.v-kalender .kslot span { color: var(--ink-3); font-weight: 400; }
+.v-kalender .kwrap.vecka .kslot span { display: none; }
+@media (min-width: 1200px) { .v-kalender .kwrap.vecka .kslot span { display: inline; } }
+
+/* veckohuvud: veckodag över datum (Apple-stil), så det får plats även med panelen öppen */
+.v-kalender .kwrap.vecka .kdh { align-items: flex-start; }
+.v-kalender .kwrap.vecka .kdh a { flex-direction: column; align-items: flex-start; gap: 1px; }
+.v-kalender .kwrap.vecka .kdh .kdn { font-size: 19px; line-height: 24px; }
+.v-kalender .kwrap.vecka .kdh.today .kdn { font-size: 15px; margin-left: -2px; }
+/* tomma agendadagar tar ingen plats */
+.v-kalender .kag.emptyday { padding: 6px 0; }
+.v-kalender .kag.emptyday .kag-b { display: none; }
+.v-kalender .kag.emptyday .kag-h { padding-top: 0; flex-direction: row; align-items: baseline; gap: 8px; }
+.v-kalender .kag.emptyday .kag-h b { font-size: 14px; color: var(--ink-3); font-weight: 600; }
+.v-kalender .kag.emptyday .kag-h small { display: none; }
