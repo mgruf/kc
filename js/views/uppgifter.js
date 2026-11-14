@@ -558,7 +558,7 @@ async function openQuick(preset = {}) {
   let d = $('#tpQuickDlg');
   if (!d) {
     document.body.insertAdjacentHTML('beforeend', `<dialog id="tpQuickDlg" class="sheet tpquick"><form id="tpQuickForm">
-      <input id="tqText" class="big-input" placeholder="Ring Calle imorgon #JF5 varje vecka" autocomplete="off" required>
+      <input id="tqText" class="big-input" placeholder="Ring Kim imorgon #PROJ varje vecka" autocomplete="off" required>
       <div class="tqprev" id="tqPrev"></div>
       <div class="row"><select id="tqList" aria-label="Lista"></select></div>
       <p class="hint">Datum (idag, imorgon, fre, 12/12, nästa vecka), #etiketter och upprepning (varje vecka) känns igen. ⏎ sparar.</p>

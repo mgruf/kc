@@ -1,10 +1,10 @@
 /* KC – snabbinmatning på svenska (port av Sikts QuickParser).
-   "lunch med Richard tis 12 på Urban Deli" → Lunch med Richard, tisdag 12–13, Urban Deli.
+   "lunch med Kim tis 12 på Kaféet" → Lunch med Kim, tisdag 12–13, Kaféet.
    Används av kalendern (kind: 'event') och uppgifterna (kind: 'task'). Inget nätverk, ingen AI.
 
    parseQuick(text, { kind, now }) → {
      title, date ('ÅÅÅÅ-MM-DD' | null), time ('HH:MM' | null), endTime, endDate, allDay,
-     location, people: [..], tags: ['#JF5'], recur: null | 'dagligen' | 'veckodagar' | 'veckovis' | 'varannan vecka' | 'månadsvis' | 'årligen',
+     location, people: [..], tags: ['#PROJ'], recur: null | 'dagligen' | 'veckodagar' | 'veckovis' | 'varannan vecka' | 'månadsvis' | 'årligen',
      calendarHint, hasExplicitDate
    } */
 

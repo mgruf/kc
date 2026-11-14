@@ -183,7 +183,7 @@ export function render(el, args) {
 
   const set = activeSet();
   const tools = `<div class="ktools">
-    <div class="kqwrap"><input id="kq" class="kq" placeholder="Ny händelse – t.ex. lunch med Richard tis 12 på Urban Deli" autocomplete="off" value="${esc(quickText)}"><div class="kqprev" id="kqprev">${previewHtml(quickText)}</div></div>
+    <div class="kqwrap"><input id="kq" class="kq" placeholder="Ny händelse – t.ex. lunch med Kim tis 12 på Kaféet" autocomplete="off" value="${esc(quickText)}"><div class="kqprev" id="kqprev">${previewHtml(quickText)}</div></div>
     <div class="kbtns">
       <div class="ksets">${allSets().map(s => `<button class="chip ${s.id === set.id ? 'on' : ''}" data-kset="${esc(s.id)}">${esc(s.name)}</button>`).join('')}</div>
       <button class="btn" data-kpanel title="Välj kalendrar och set">Kalendrar</button>

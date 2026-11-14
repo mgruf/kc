@@ -176,7 +176,7 @@ export async function parseFile(file) {
   if (ext === 'pdf') return parsePdfLines(await pdfToLines(await file.arrayBuffer()), meta);
   return parseFountain(await file.text(), meta);
 }
-/** "JF4_F2_261001_PINK.fdx" → film F2, version 261001_PINK */
+/** "PROJ_F2_261001_PINK.fdx" → film F2, version 261001_PINK */
 export function guessFromName(name) {
   const b = name.replace(/\.[^.]+$/, '');
   const ver = (b.match(/(\d{6}(?:[_ -][A-Za-zÅÄÖåäö]+)?)/) || [])[1] || '';

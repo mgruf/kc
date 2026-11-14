@@ -1,4 +1,4 @@
-/* IDAG – dashboarden. Widgets i ett rutnät som Mathias väljer, flyttar och storleksändrar själv (Anpassa).
+/* IDAG – dashboarden. Widgets i ett rutnät som man väljer, flyttar och storleksändrar själv (Anpassa).
    Layouten sparas i Apps Script under '_IDAG' och följer med mellan dator och telefon. */
 import {
   S, api, emit, refresh, $, esc, toast, ymd, parseYmd, addDays, todayStr, week, hhmm, DAYS, MONTHS, shortDate, dayLabel, monday, relTime,
@@ -73,7 +73,7 @@ function widget(id, size) {
     case 'greet': return greet();
     case 'capture': {
       const inbox = tasks().filter(x => /INBOX/i.test(x.list));
-      return `<form class="capture" data-capture><input placeholder="Skriv något – ”ring Calle imorgon #JF5”" autocomplete="off" aria-label="Fånga"><button aria-label="Lägg till">↵</button></form>
+      return `<form class="capture" data-capture><input placeholder="Skriv något – ”ring Kim imorgon #PROJ”" autocomplete="off" aria-label="Fånga"><button aria-label="Lägg till">↵</button></form>
         <div class="cap-prev" data-capprev></div>
         <div class="cap-meta"><a href="#/uppgifter">Inkorgen: <b>${inbox.length}</b></a></div>
         ${inbox.slice(-3).reverse().map(x => `<div class="mini" data-task="${esc(x.id)}">${esc(cleanTitle(x.title))}</div>`).join('')}`;
