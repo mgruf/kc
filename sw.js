@@ -1,8 +1,8 @@
 // KC: sidan hämtas alltid färsk när nätet finns (så att alla moduler är samma version),
 // och sparas så att KC öppnas även utan nät. Data hämtas alltid av appen själv.
-const V = 'kc-v10';
+const V = 'kc-v11';
 const SHELL = ['./', 'index.html', 'quotes.js', 'manifest.webmanifest', 'icons/icon.svg',
-  'css/base.css', 'css/views.css', 'css/kalender.css', 'css/produktion.css', 'css/samling.css', 'css/dashboard.css', 'css/uppgifter.css', 'css/manus.css', 'css/mote.css', 'css/vecka.css', 'css/mall.css', 'css/callsheet.css', 'css/plan.css', 'css/plan-app.css', 'plan.html', 'js/plan-engine.js', 'js/plan/app.js', 'js/plan/jspdf.umd.min.js',
+  'css/base.css', 'css/views.css', 'css/kalender.css', 'css/produktion.css', 'css/samling.css', 'css/dashboard.css', 'css/uppgifter.css', 'css/manus.css', 'css/mote.css', 'css/vecka.css', 'css/mall.css', 'css/callsheet.css', 'css/plan.css', 'css/plan-app.css', 'plan.html', 'js/plan-engine.js', 'js/plan/app.js', 'js/plan/tidy.js', 'js/dpr-pdf.js', 'js/plan/jspdf.umd.min.js',
   'js/core.js', 'js/ui.js', 'js/main.js', 'js/search.js', 'js/quickparse.js', 'js/recur.js',
   'js/views/idag.js', 'js/views/kalender.js', 'js/views/uppgifter.js', 'js/views/anteckningar.js', 'js/views/personer.js',
   'js/views/projekt.js', 'js/views/produktion.js', 'js/views/samling.js', 'js/views/horisont.js', 'js/views/manus.js', 'js/views/team.js', 'js/views/mote.js', 'js/kopplat.js', 'js/mejl.js', 'js/plan.js', 'js/views/vecka.js', 'js/views/mall.js', 'js/views/callsheet.js', 'js/views/rek.js', 'js/views/plan.js'];

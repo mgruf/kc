@@ -179,7 +179,7 @@
 .pboard .dtools .btn:not(.solid) { border-color: transparent; background: none; color: var(--ink-3); }
 .w-calm { background: none; border-style: dashed; font-size: 13px; color: var(--ink-3); padding: 10px 14px; }
 @media (max-width: 900px) {
-  .pband, .pband.noside, .pband.nomain { display: flex; flex-direction: column; gap: 12px; }
+  .pband, .pband.noside, .pband.nomain { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
   .pcol, .pband.noside .pside, .pband.nomain .pmain { display: contents; }
 }
 /* statusrad */
@@ -192,4 +192,4 @@ a.ps-i:hover { border-color: var(--line-2); }
 .ps-bar { display: block; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; margin-top: 4px; }
 .ps-bar i { display: block; height: 100%; background: var(--ink); }
 .btn.icon { padding-left: 10px; padding-right: 10px; }
-@media (max-width: 760px) { .pstrip { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: -16px; margin-right: -16px; padding: 0 16px; } .pstrip::-webkit-scrollbar { display: none; } }
+@media (max-width: 760px) { .ps-i { flex: 0 0 auto; } .ps-i b { max-width: 200px; } .pstrip { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: -16px; margin-right: -16px; padding: 0 16px; } .pstrip::-webkit-scrollbar { display: none; } }
