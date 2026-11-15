@@ -91,7 +91,7 @@
 }
 
 /* rek */
-.rek-bar { display: grid; gap: 10px; margin-bottom: 8px; }
+.rek-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0 12px; }
 .rek-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
 .rek-chips small { display: inline; color: inherit; opacity: .6; font-size: 11px; }
 .rek-pickbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13.5px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); position: sticky; top: 60px; z-index: 3; }

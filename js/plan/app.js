@@ -31,17 +31,31 @@ const REG_ID = 'reg';
 let REG_URL = '';
 const kcTarget = id => id === REG_ID ? { reg: true } : (!id || id === cur.id) && cur.tag ? { tag: cur.tag } : { ssId: id };
 const snapCache = {};
-const STD_TABS = /^(Faser|Rader|Resurser|Kalender|Mallar|Inställningar|Varianter|Mottagare|Status|Budget|Läs mig)$/;
+const STD_TABS = /^(Faser|Rader|Resurser|Kalender|Mallar|Inställningar|Varianter|Mottagare|Status|Budget|Läs mig|Ändringslogg)$/;
+// Läsningar delas: samma ark läses en gång (även när det nås via ID i stället för tagg). Senaste läsningen
+// sparas i webbläsaren så planen syns direkt nästa gång – en färsk läsning görs alltid i bakgrunden.
+const snapKey = id => JSON.stringify(kcTarget(id));
+const lsGet = k => { try { return JSON.parse(localStorage.getItem('kc_plansnap_' + k) || 'null'); } catch (e) { return null; } };
+const lsSet = (k, d) => { try { localStorage.setItem('kc_plansnap_' + k, JSON.stringify(d)); } catch (e) { try { Object.keys(localStorage).filter(x => x.startsWith('kc_plansnap_')).forEach(x => localStorage.removeItem(x)); } catch (e2) {} } };
+let staleShown = false, showingCopy = false;
 function kcSnap(id, tab, fresh) {
-  const k = id || '_cur';
   if (id !== REG_ID && tab && !STD_TABS.test(tab)) return kcApi('planRead', Object.assign(kcTarget(id), { tabs: tab }), true);
+  const k = snapKey(id);
   const c = snapCache[k];
-  if (!fresh && c && Date.now() - c.t < 8000) return c.p;
-  const p = kcApi('planRead', kcTarget(id), true);
-  snapCache[k] = { t: Date.now(), p }; p.catch(() => { delete snapCache[k]; });
+  if (!fresh && c && c.old && c.pending) return Promise.resolve(c.old);
+  if (!fresh && c && (c.pending || Date.now() - c.t < 60000)) return c.p;
+  const p = kcApi('planRead', Object.assign(kcTarget(id), id === REG_ID ? {} : { withLog: true }), true);
+  const ent = snapCache[k] = { t: Date.now(), p, pending: true };
+  p.then(d => { ent.pending = false; ent.t = Date.now(); if (id !== REG_ID) lsSet(k, d); }, () => { delete snapCache[k]; });
+  const old = !fresh && id !== REG_ID && !staleShown ? lsGet(k) : null;
+  if (old && old.sheets && Date.now() - Date.parse(old.readAt || 0) < 14 * 864e5) {
+    staleShown = true; showingCopy = true; ent.old = old;
+    p.then(d => { showingCopy = false; if (dirty && ui.autosave) { setTimeout(() => saveToSheet(true), 500); return; } if (String(d.version) !== String(old.version)) { snapCache[k] = { t: Date.now(), p: Promise.resolve(d) }; loadFromSheet(false, true); } else { source = { kind: 'sheet', at: nowStamp() }; renderSource(); } }, () => { showingCopy = false; renderSource(); });
+    return Promise.resolve(old);
+  }
   return p;
 }
-const dropSnap = id => { delete snapCache[id || '_cur']; delete snapCache['_cur']; if (cur.id) delete snapCache[cur.id]; };
+const dropSnap = id => { delete snapCache[snapKey(id)]; delete snapCache[snapKey(cur.id)]; delete snapCache[snapKey('')]; };
 const tabOf = range => { const m = /^'?(.+?)'?!/.exec(range); return m ? m[1] : range; };
 const a1 = range => { const m = /!\$?([A-Z]+)\$?(\d+)/.exec(range); if (!m) return { col: 1, row: 1 }; let c = 0; for (const ch of m[1]) c = c * 26 + ch.charCodeAt(0) - 64; return { col: c, row: +m[2] }; };
 let lastRaw = {};        // flikarna så som de såg ut när planen lästes (för diff och optimistisk låsning)
@@ -219,14 +233,14 @@ function renderSource() {
   const sheetLink = cur.id || cur.url ? `<a href="${sheetUrl()}" target="_blank" rel="noopener">${esc(cur.name || 'arket')}</a>` : '';
   $('#title').textContent = plan.meta.title || cur.name || (view === 'pf' ? 'Alla projekt' : 'Produktionsplan');
   let s = source.kind === 'sheet'
-    ? `<span class="dot live"></span> Google Sheet ${sheetLink} · hämtad ${esc(source.at)}`
+    ? (showingCopy ? `<span class="dot"></span> ${sheetLink} · senaste kopian, hämtar färsk…` : `<span class="dot live"></span> ${sheetLink} · hämtad ${esc(source.at)}`)
     : source.kind === 'loading' ? (cur.tag ? `<span class="dot"></span> Hämtar planen…` : '') : `<span class="dot"></span> ${esc(source.at || '')}`;
   if (dirty) s += ` · <span class="dot dirty"></span> Osparade ändringar${ui.autosave && mcp && source.kind === 'sheet' ? ' – sparas strax' : ''} <button class="linkbtn" type="button" id="btnReset">Återställ</button>`;
   s += draftHtml();
   if (staleNote) s += `<div class="nosave">${esc(staleNote)}</div>`;
   $('#source').innerHTML = s;
   const noSheet = !cur.tag && !cur.id;
-  $('#btnLoad').disabled = noSheet; $('#btnSave').disabled = noSheet || source.kind !== 'sheet';
+  $('#btnLoad').disabled = noSheet; $('#btnSave').disabled = noSheet || source.kind !== 'sheet' || showingCopy;
 
   $('#btnUndo').disabled = !undoStack.length; $('#btnRedo').disabled = !redoStack.length;
 }
@@ -268,8 +282,12 @@ function renderAlerts() {
     if (r && r.waited > 0) items.push(`<div class="alert"><b>${esc(label(t))}</b> väntar ${r.waited} arbetsdagar på ${esc((r.members || []).map(memberName).join(' och ') || 'en ledig person')}.</div>`);
     (t.deps || []).forEach(dp => { if (!taskById(dp.id)) items.push(`<div class="alert"><b>${esc(label(t))}</b> hänvisar till okänt ID “${esc(dp.id)}”.</div>`); });
   });
-  $('#alerts').innerHTML = items.join('');
+  // Visa högst två varningar öppna; resten bakom "N till" (KC-läge: lugnare yta)
+  const open = renderAlerts.open, MAX = 2;
+  $('#alerts').innerHTML = items.length <= MAX + 1 || open ? items.join('') + (open && items.length > MAX + 1 ? `<button class="linkbtn alerts-more" type="button" data-alerts="0">Visa färre</button>` : '')
+    : items.slice(0, MAX).join('') + `<button class="linkbtn alerts-more" type="button" data-alerts="1">${items.length - MAX} varningar till</button>`;
 }
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-alerts]'); if (b) { renderAlerts.open = b.dataset.alerts === '1'; renderAlerts(); } });
 
 // ---- Rader ----
 function visibleTask(t) { if (ui.f && ui.f.hide && filterOn() && !matchF(t)) return false; return ui.film === 'all' || !t.film || String(t.film) === String(ui.film); }
@@ -1457,7 +1475,7 @@ async function loadFromSheet(user, force) {
   if (!mcp) return false;
   const btn = $('#btnLoad');
   if (dirty && user && !force && !loadFromSheet._armed) { loadFromSheet._armed = true; btn.textContent = 'Klicka igen – osparat ersätts'; setTimeout(() => { loadFromSheet._armed = false; btn.textContent = 'Hämta från Sheet'; }, 4000); return; }
-  loadFromSheet._armed = false; btn.textContent = 'Hämtar…'; btn.disabled = true; dropSnap(cur.id); staleNote = '';
+  loadFromSheet._armed = false; btn.textContent = 'Hämtar…'; btn.disabled = true; if (user) dropSnap(cur.id); staleNote = '';
   try {
     const [f, r, s] = await Promise.all([getRange('Faser!A1:AK800'), getRange('Resurser!A1:H300'), getRange('Inställningar!A1:B50')]);
     const [m, ra, ka, va, mo] = await Promise.all([tryRange('Mallar!A1:W1500'), tryRange('Rader!A1:F500'), tryRange('Kalender!A1:D200'), tryRange('Varianter!A1:E200'), tryRange('Mottagare!A1:D200')]);
@@ -2697,7 +2715,7 @@ function draftTick() {
   const s = JSON.stringify({ plan, variants });
   if (s === lastSnap) return; lastSnap = s;
   store(draftKey(), { at: Date.now(), stamp: nowStamp(), data: s }); cloudWrite(s);
-  if (ui.autosave && mcp && source.kind === 'sheet' && !saveBusy) { clearTimeout(autoT); autoT = setTimeout(() => { if (dirty && !saveBusy) saveToSheet(true); }, 2500); }
+  if (ui.autosave && mcp && source.kind === 'sheet' && !saveBusy) { clearTimeout(autoT); autoT = setTimeout(() => { if (dirty && !saveBusy && !showingCopy) saveToSheet(true); }, 2500); }
 }
 let saveBusy = false;
 function clearDraft() { try { localStorage.removeItem('kc_plan.' + draftKey()); } catch (e) {} lastSnap = null; draftOffer = null; cloudClear(); }

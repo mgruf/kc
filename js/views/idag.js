@@ -3,7 +3,7 @@
 import {
   S, api, emit, refresh, $, esc, toast, ymd, parseYmd, addDays, todayStr, week, hhmm, DAYS, MONTHS, shortDate, dayLabel, monday, relTime,
   tasks, events, notes, evOnDay, tagDate, fireList, cfgProjects, visible, projects, WX, modeCls, tagHtml, tagColor, isFire, isWaitingLong, waitedDays,
-  cleanTitle, contactOf, initials, firstName, claudeUrl,
+  cleanTitle, contactOf, initials, firstName, claudeUrl, SHOOT_EV, isShootDup,
 } from '../core.js';
 import { taskRow, eventRow, noteRow, empty, pref, setPref, openTask } from '../ui.js';
 
@@ -13,28 +13,39 @@ import('../quickparse.js').then(m => { parseQuick = m.parseQuick; }).catch(() =>
 
 // ---------- widgetkatalog ----------
 const W = {
-  greet:      { title: 'Dagen', size: 'l', bare: true },
+  greet:      { title: 'Dagen', size: 'xl', bare: true },
   capture:    { title: 'Fånga', size: 's' },
   focus:      { title: 'Fokus', size: 's' },
   fire:       { title: 'Det som brinner', size: 's' },
   next:       { title: 'Härnäst', size: 's' },
-  agenda:     { title: 'Dagens schema', size: 's' },
+  agenda:     { title: 'Dagens schema', size: 'l' },
   tasks:      { title: 'Uppgifter', size: 'l' },
   week:       { title: 'Veckan', size: 'xl' },
   projects:   { title: 'Projekt', size: 'xl' },
   shoot:      { title: 'Inspelning', size: 's', when: () => cfgProjects().some(p => p.shoot) },
   waiting:    { title: 'Väntar på', size: 's' },
-  stats:      { title: 'Läget', size: 'm' },
-  milestones: { title: 'Milstolpar', size: 's' },
-  notes:      { title: 'Anteckningar', size: 's' },
+  stats:      { title: 'Läget', size: 'l' },
+  milestones: { title: 'Milstolpar', size: 'l' },
+  notes:      { title: 'Anteckningar', size: 'l' },
   links:      { title: 'Snabblänkar', size: 's' },
-  weather:    { title: 'Väder', size: 'm' },
+  weather:    { title: 'Väder', size: 's' },
   contact:    { title: 'Att kontakta', size: 's' },
   mail:       { title: 'Mejl', size: 's' },
-  capacity:   { title: 'Kapacitet', size: 'm' },
+  capacity:   { title: 'Kapacitet', size: 's' },
   delegated:  { title: 'Delegerat', size: 's' },
 };
-const DEFAULT = ['greet', 'capture', 'focus', 'fire', 'next', 'tasks', 'agenda', 'mail', 'capacity', 'delegated', 'week', 'projects', 'shoot', 'waiting', 'stats', 'milestones', 'notes', 'links'];
+// Ordningen är också ordningen på mobilen. S = sidokolumnen, L = huvudkolumnen, XL = hela bredden.
+const DEFAULT = ['greet', 'capture', 'fire', 'agenda', 'next', 'tasks', 'shoot', 'mail', 'focus', 'waiting', 'delegated', 'capacity', 'milestones', 'notes', 'week', 'projects', 'stats', 'links'];
+const zone = sz => sz === 'xl' ? 'full' : sz === 's' ? 'side' : 'main';
+const SIZE_LABEL = { s: 'Sida', m: 'Huvud', l: 'Huvud', xl: 'Bred' };
+// Tomma "lugna" widgets slås ihop till en rad i stället för att ta plats var för sig.
+const CALM = {
+  fire: () => !fireList().length && 'Inget brinner',
+  focus: () => !tasks().some(x => /FOKUS/i.test(x.list) || (x.tags || []).includes('#FOKUS') || x.due === todayStr()) && 'Fokus är tomt',
+  waiting: () => !tasks().some(x => x.waiting) && 'Du väntar inte på någon',
+  delegated: () => PLAN && !PLAN.delegated().length && 'Inget delegerat',
+  contact: () => !tasks().some(x => /KONTAKTA|SVARA/i.test(x.list)) && 'Ingen att kontakta',
+};
 let editing = false;
 
 function layout() {
@@ -51,12 +62,26 @@ export function render(el) {
   }
   const l = layout(), used = new Set(l.map(w => w.id));
   const free = Object.keys(W).filter(id => !used.has(id) && (!W[id].when || W[id].when()));
+  const calm = [];
+  const cell = (w, i) => {
+    if (!editing && CALM[w.id]) { const c = CALM[w.id](); if (c) { calm.push(c); return calm.length === 1 ? '<!--calm-->' : ''; } }
+    return `<section class="dw sz-${w.size} ${W[w.id].bare ? 'bare' : ''} dw-${w.id}" data-w="${i}" draggable="${editing}" style="order:${i}">
+      <div class="wtools"><button data-wmove="-1" aria-label="Flytta bakåt">‹</button><button data-wsize aria-label="Placering" title="Sida, huvudkolumn eller hela bredden">${SIZE_LABEL[w.size] || 'Huvud'}</button><button data-wmove="1" aria-label="Flytta framåt">›</button><button data-wremove aria-label="Ta bort">×</button></div>
+      ${W[w.id].bare ? '' : `<h4>${esc(W[w.id].title)}${headExtra(w.id)}</h4>`}${safe(w.id, w.size)}</section>`;
+  };
+  // Band: en XL-widget är ett eget band; övriga samlas i två kolumner (huvud + sida) tills nästa XL.
+  const bands = []; let band = null;
+  l.forEach((w, i) => {
+    if (zone(w.size) === 'full') { band = null; bands.push({ full: cell(w, i) }); return; }
+    if (!band) bands.push(band = { main: [], side: [] });
+    band[zone(w.size)].push(cell(w, i));
+  });
+  const calmHtml = calm.length ? `<section class="dw dw-calm" style="order:999"><span class="calm-ok">✓</span> ${calm.map(esc).join(' · ')}</section>` : '';
+  const fill = x => x.replace('<!--calm-->', calmHtml);
   el.innerHTML = `<div class="dboard ${editing ? 'editing' : ''}">
-    ${l.map((w, i) => `<section class="dw sz-${w.size} ${W[w.id].bare ? 'bare' : ''} dw-${w.id}" data-w="${i}" draggable="${editing}">
-      <div class="wtools"><button data-wmove="-1" aria-label="Flytta bakåt">‹</button><button data-wsize aria-label="Storlek">${w.size.toUpperCase()}</button><button data-wmove="1" aria-label="Flytta framåt">›</button><button data-wremove aria-label="Ta bort">×</button></div>
-      ${W[w.id].bare ? '' : `<h4>${esc(W[w.id].title)}${headExtra(w.id)}</h4>`}${safe(w.id, w.size)}</section>`).join('')}
-    ${editing && free.length ? `<section class="dw sz-m addw"><h4>Lägg till widget</h4><div class="chips">${free.map(id => `<button class="chip" data-wadd="${id}">${esc(W[id].title)}</button>`).join('')}</div></section>` : ''}
-    <div class="dtools"><button class="btn ${editing ? 'solid' : ''}" data-dedit>${editing ? 'Klar' : 'Anpassa Idag'}</button>${editing ? '<span class="hint">Flytta med ‹ › eller dra. Storlek S/M/L/XL. × tar bort.</span>' : ''}</div>
+    ${bands.map(b => b.full != null ? `<div class="dband full">${fill(b.full)}</div>` : `<div class="dband ${b.side.join('').trim() ? '' : 'noside'} ${b.main.join('').trim() ? '' : 'nomain'}"><div class="dcol dmain">${fill(b.main.join(''))}</div><div class="dcol dside">${fill(b.side.join(''))}</div></div>`).join('')}
+    ${editing && free.length ? `<div class="dband full"><section class="dw addw"><h4>Lägg till widget</h4><div class="chips">${free.map(id => `<button class="chip" data-wadd="${id}">${esc(W[id].title)}</button>`).join('')}</div></section></div>` : ''}
+    <div class="dtools"><button class="btn ${editing ? 'solid' : ''}" data-dedit>${editing ? 'Klar' : 'Anpassa Idag'}</button>${editing ? '<span class="hint">Flytta med ‹ › eller dra. Placering: Sida, Huvud eller Bred. × tar bort.</span>' : ''}</div>
   </div>`;
   bind(el);
 }
@@ -96,13 +121,19 @@ function widget(id, size) {
         : `<div class="calm">Inget brinner. ✓</div>`;
     }
     case 'next': {
-      const up = events().filter(e => !e.allDay && new Date(e.end) > now).sort((a, b) => a.start.localeCompare(b.start));
+      const up = events().filter(e => !e.allDay && new Date(e.end) > now && !isShootDup(e)).sort((a, b) => a.start.localeCompare(b.start));
       const cur = up.find(e => new Date(e.start) <= now), nx = up.find(e => new Date(e.start) > now);
       const mins = nx ? Math.round((new Date(nx.start) - now) / 60e3) : 0;
       const when = m => m < 60 ? `om ${m} min` : m < 24 * 60 ? `om ${Math.floor(m / 60)} h ${m % 60 ? (m % 60) + ' min' : ''}` : dayLabel(ymd(new Date(nx.start))) + ' ' + hhmm(nx.start);
       const video = e => (/(https?:\/\/[^\s]*(meet\.google|zoom\.us|teams\.microsoft)[^\s]*)/.exec((e.location || '') + ' ' + (e.description || '')) || [])[1];
       const block = (e, label) => `<div class="nx item event" data-ev="${esc(e.id)}" data-evs="${esc(e.start)}"><div class="main"><div class="nx-l">${label}</div><div class="nx-t">${esc(cleanTitle(e.title))}</div><div class="sub">${hhmm(e.start)}–${hhmm(e.end)}${e.location ? '<i class="sep">·</i>' + esc(e.location) : ''}</div>${video(e) ? `<a class="btn solid nx-join" href="${esc(video(e))}" target="_blank" rel="noopener">Anslut</a>` : ''}</div></div>`;
-      return (cur ? block(cur, 'Pågår nu') : '') + (nx ? block(nx, when(mins)) : '') || `<div class="calm">Inget mer i kalendern idag.</div>`;
+      // Inspelningsdag (idag/imorgon) räknas som nästa sak om den börjar före nästa händelse
+      const sd = cfgProjects().filter(visible).flatMap(p => (p.shootDays || []).map(d => ({ p, d })))
+        .map(x => { const m = /(\d{1,2})[:.](\d{2})\s*[–-]\s*(\d{1,2})[:.](\d{2})/.exec(x.d.hours || ''); const st = parseYmd(x.d.date), en = parseYmd(x.d.date); if (m) { st.setHours(+m[1], +m[2]); en.setHours(+m[3], +m[4]); } else { st.setHours(7); en.setHours(19); } return { ...x, st, en }; })
+        .filter(x => x.en > now).sort((a, b) => a.st - b.st)[0];
+      const shootBlock = x => `<a class="nx item" href="#/projekt/${encodeURIComponent(x.p.tag)}/produktion/dagar/${x.d.date}" style="--tc:${tagColor(x.p.tag)}"><div class="main"><div class="nx-l">${x.st <= now ? 'Pågår nu' : x.d.date === t ? 'idag ' + hhmm(x.st.toISOString()) : dayLabel(x.d.date) + ' ' + hhmm(x.st.toISOString())}</div><div class="nx-t">Inspelning dag ${x.d.day}</div><div class="sub">${esc([x.d.note, x.d.hours, x.p.name].filter(Boolean).join(' · '))}</div></div></a>`;
+      const useShoot = sd && (sd.st - now) < 36 * 36e5 && (!nx || sd.st <= new Date(nx.start) || sd.st <= now);
+      return (cur ? block(cur, 'Pågår nu') : '') + (useShoot ? shootBlock(sd) : '') + (nx && !(useShoot && cur) ? block(nx, when(mins)) : '') || `<div class="calm">Inget mer i kalendern idag.</div>`;
     }
     case 'agenda': return agenda();
     case 'tasks': {
@@ -152,13 +183,14 @@ function widget(id, size) {
         <div><b class="num">${doneWeek}</b><span>klara i veckan</span></div>
         <div><b class="num">${open}</b><span>öppna</span></div>
         <div><b class="num ${over ? 'firetext' : ''}">${over}</b><span>försenade</span></div>
-        <div><b class="num">${Math.round(meet)}</b><span>tim möten i veckan</span></div></div>`;
+        <div><b class="num">${Math.round(meet)}</b><span>tim möten resten av veckan</span></div></div>`;
     }
     case 'milestones': {
       const items = cfgProjects().filter(visible).flatMap(p => [
-        ...(p.deadlines || []).map(x => ({ d: x.date, n: x.name, p })), ...(p.phases || []).filter(x => x.milestone).map(x => ({ d: x.start, n: x.name, p })),
+        ...(p.deadlines || []).map(x => ({ d: x.date, n: x.name, p })), ...(p.phases || []).filter(x => x.milestone).map(x => ({ d: x.start, n: (x.film ? 'F' + x.film + ' ' : '') + x.name, p })),
         ...(p.shoot?.lastDay ? [{ d: p.shoot.lastDay, n: 'Sista inspelningsdag', p }] : []),
-      ]).filter(x => x.d >= t).sort((a, b) => a.d.localeCompare(b.d)).slice(0, 7);
+      ]).filter(x => x.d >= t).sort((a, b) => a.d.localeCompare(b.d))
+        .filter((x, i, a) => a.findIndex(y => y.d === x.d && y.p === x.p && (y.n === x.n || y.n.replace(/^F\d /, '') === x.n.replace(/^F\d /, '') && /^F\d /.test(y.n) !== /^F\d /.test(x.n))) === i).slice(0, 7);
       return items.length ? items.map(x => `<a class="item" href="#/projekt/${encodeURIComponent(x.p.tag)}"><div class="time"><small>${esc(MONTHS[parseYmd(x.d).getMonth()].slice(0, 3))}</small>${parseYmd(x.d).getDate()}</div><div class="main"><div class="title">${esc(x.n)}</div><div class="sub">${esc(x.p.name)}<i class="sep">·</i>${esc(dayLabel(x.d))}</div></div></a>`).join('') : empty('Inga kommande milstolpar.');
     }
     case 'notes': {
@@ -175,7 +207,7 @@ function widget(id, size) {
       const w = S.weather; if (!w?.days) return empty('Ingen väderprognos.');
       return `<div class="wx">${w.days.map(d => `<div><span>${esc(DAYS[parseYmd(d.date).getDay()].slice(0, 3))}</span><b>${Math.round(d.max)}°</b><small>${Math.round(d.min)}° · ${esc(WX(d.code))}</small></div>`).join('')}</div>`;
     }
-    case 'capacity': return PLAN ? PLAN.capacityWeekHtml(undefined, { compact: true }) : empty('Laddar…');
+    case 'capacity': { if (!PLAN) return empty('Laddar…'); const d = now.getDay(); return PLAN.capacityWeekHtml(d === 0 || d === 6 ? ymd(addDays(monday(now), 7)) : t, { compact: true, rest: d !== 0 && d !== 6 }); }
     case 'delegated': return PLAN ? PLAN.delegationsHtml() : empty('Laddar…');
     case 'mail': return `<div data-mailbox='{"kind":"widget"}'><p class="empty">Hämtar mejl…</p></div>`;
     case 'contact': {
@@ -201,21 +233,36 @@ function greet() {
   </div>`;
 }
 
-/** Dagens tidslinje 07–21 med händelserna som block och nu-linje. */
+/** Kalenderhändelser som bara upprepar en inspelningsdag ("Inspelningsdag 45") visas inte bredvid själva dagen. */
+function dayItems(day) {
+  const shoot = cfgProjects().filter(visible).flatMap(p => (p.shootDays || []).filter(d => d.date === day).map(d => ({ p, d })));
+  const evs = events().filter(e => evOnDay(e, day)).filter(e => !(shoot.length && SHOOT_EV.test(e.title)))
+    .sort((a, b) => (a.allDay === b.allDay ? String(a.start).localeCompare(String(b.start)) : a.allDay ? -1 : 1));
+  return { shoot, all: evs.filter(e => e.allDay), timed: evs.filter(e => !e.allDay) };
+}
+function agendaDay(day, now) {
+  const { shoot, all, timed } = dayItems(day);
+  const chips = shoot.map(({ p, d }) => `<a class="ag-chip" style="--tc:${tagColor(p.tag)}" href="#/projekt/${encodeURIComponent(p.tag)}/produktion/dagar/${day}">Inspelning dag ${d.day}${d.note ? ' · ' + esc(d.note) : ''}${d.hours ? ' · ' + esc(d.hours) : ''}</a>`)
+    .concat(all.map(e => `<span class="ag-chip item event" data-ev="${esc(e.id)}" data-evs="${esc(e.start)}" style="--tc:${e.tags?.[0] ? tagColor(e.tags[0]) : 'var(--ink-3)'}">${esc(cleanTitle(e.title))}</span>`)).join('');
+  let nowDone = !now;
+  const rows = timed.map(e => {
+    const past = now && new Date(e.end) < now, cur = now && new Date(e.start) <= now && new Date(e.end) > now;
+    let line = '';
+    if (!nowDone && new Date(e.start) > now) { nowDone = true; line = '<div class="ag-nowl"><span>' + hhmm(now.toISOString()) + '</span></div>'; }
+    if (cur) nowDone = true;
+    return line + `<div class="ag-row item event ${modeCls(e.mode)} ${past ? 'past' : ''} ${cur ? 'cur' : ''}" data-ev="${esc(e.id)}" data-evs="${esc(e.start)}" style="--tc:${e.tags?.[0] ? tagColor(e.tags[0]) : 'var(--line-2)'}">
+      <span class="ag-t">${hhmm(e.start)}<small>${hhmm(e.end)}</small></span><span class="ag-m"><b>${esc(cleanTitle(e.title))}</b>${e.location || e.cal ? `<small>${esc([e.location, e.cal].filter(Boolean).join(' · '))}</small>` : ''}</span></div>`;
+  }).join('') + (!nowDone && timed.length ? '<div class="ag-nowl"><span>' + hhmm(now.toISOString()) + '</span></div>' : '');
+  return { html: (chips ? `<div class="ag-all">${chips}</div>` : '') + rows, n: timed.length + all.length + shoot.length, left: now ? timed.filter(e => new Date(e.end) > now).length : timed.length };
+}
+/** Dagens schema som lista med nu-linje. När dagen är slut visas morgondagen under. */
 function agenda() {
-  const t = todayStr(), now = new Date();
-  const evs = events().filter(e => evOnDay(e, t));
-  const all = evs.filter(e => e.allDay), timed = evs.filter(e => !e.allDay);
-  const H0 = Math.min(7, ...timed.map(e => new Date(e.start).getHours())), H1 = Math.max(21, ...timed.map(e => new Date(e.end).getHours() + 1));
-  const px = 26, y = d => ((d.getHours() + d.getMinutes() / 60) - H0) * px;
-  const shoot = cfgProjects().filter(visible).flatMap(p => (p.shootDays || []).filter(d => d.date === t).map(d => ({ p, d })));
-  return `${all.length || shoot.length ? `<div class="ag-all">${shoot.map(({ p, d }) => `<a class="ag-chip" style="--tc:${tagColor(p.tag)}" href="#/projekt/${encodeURIComponent(p.tag)}/produktion/dagar/${t}">Dag ${d.day} · ${esc(d.note || '')}</a>`).join('')}${all.map(e => `<span class="ag-chip item event" data-ev="${esc(e.id)}" data-evs="${esc(e.start)}" style="--tc:${e.tags?.[0] ? tagColor(e.tags[0]) : 'var(--ink-3)'}">${esc(cleanTitle(e.title))}</span>`).join('')}</div>` : ''}
-    <div class="ag" style="height:${(H1 - H0) * px}px">
-      ${Array.from({ length: H1 - H0 }, (_, i) => `<div class="ag-h" style="top:${i * px}px"><span>${String(H0 + i).padStart(2, '0')}</span></div>`).join('')}
-      ${timed.map(e => { const s = new Date(e.start), en = new Date(e.end); const top = Math.max(0, y(s)), hgt = Math.max(16, y(en) - y(s) - 2);
-        return `<div class="ag-ev item event ${modeCls(e.mode)} ${en < now ? 'past' : ''}" data-ev="${esc(e.id)}" data-evs="${esc(e.start)}" style="top:${top}px;height:${hgt}px;--tc:${e.tags?.[0] ? tagColor(e.tags[0]) : 'var(--ink-3)'}"><b>${hhmm(e.start)}</b> ${esc(cleanTitle(e.title))}</div>`; }).join('')}
-      ${y(now) >= 0 && y(now) <= (H1 - H0) * px ? `<div class="ag-now" style="top:${y(now)}px"></div>` : ''}
-    </div>`;
+  const now = new Date(), t = todayStr(), tm = ymd(addDays(now, 1));
+  const a = agendaDay(t, now);
+  const late = !a.left && (now.getHours() >= 15 || !a.n);
+  const b = late ? agendaDay(tm, null) : null;
+  return `<div class="ag-list">${a.n ? a.html : '<div class="calm">Inget i kalendern idag.</div>'}</div>` +
+    (b ? `<div class="ag-next"><div class="ag-nh">Imorgon · ${esc(DAYS[addDays(now, 1).getDay()])}</div><div class="ag-list">${b.n ? b.html : '<div class="calm">Inget inplanerat.</div>'}</div></div>` : '');
 }
 
 function weekStrip() {
@@ -223,9 +270,9 @@ function weekStrip() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
   return `<div class="wk">${days.map(d => {
     const s = ymd(d);
-    const evs = events().filter(e => evOnDay(e, s)).sort((a, b) => String(a.start).localeCompare(String(b.start)));
-    const ts = tasks().filter(x => x.due === s);
     const shoot = cfgProjects().filter(visible).flatMap(p => (p.shootDays || []).filter(x => x.date === s).map(x => ({ p, x })));
+    const evs = events().filter(e => evOnDay(e, s)).filter(e => !(shoot.length && SHOOT_EV.test(e.title))).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+    const ts = tasks().filter(x => x.due === s);
     return `<a class="wkd ${s === t ? 'today' : ''} ${s < t ? 'pastd' : ''}" href="#/kalender/dag/${s}">
       <div class="wkh"><span>${DAYS[d.getDay()].slice(0, 3)}</span><b>${d.getDate()}</b></div>
       ${shoot.map(({ p, x }) => `<div class="wkc" style="--tc:${tagColor(p.tag)}">Dag ${x.day}</div>`).join('')}
@@ -253,7 +300,7 @@ function bind(el) {
     const l = layout().map(x => ({ ...x })), i = Number(b.closest('[data-w]')?.dataset.w);
     if (b.dataset.wadd) l.push({ id: b.dataset.wadd, size: W[b.dataset.wadd].size });
     else if (b.hasAttribute('data-wremove')) l.splice(i, 1);
-    else if (b.hasAttribute('data-wsize')) l[i].size = { s: 'm', m: 'l', l: 'xl', xl: 's' }[l[i].size] || 'm';
+    else if (b.hasAttribute('data-wsize')) l[i].size = { s: 'l', m: 'xl', l: 'xl', xl: 's' }[l[i].size] || 'l';
     else { const j = i + Number(b.dataset.wmove); if (j >= 0 && j < l.length) [l[i], l[j]] = [l[j], l[i]]; }
     setLayout(l);
   });

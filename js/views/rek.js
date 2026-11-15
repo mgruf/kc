@@ -118,21 +118,33 @@ export function rekHtml(p, pr, args = []) {
     const sel = ids.map(id => rows.find(r => r._id === id)).filter(Boolean);
     if (sel.length >= 2) return `<div class="rek" data-rek-tag="${esc(p.tag)}">${compare(sel, p.tag)}</div>`;
   }
-  const list = needs(pr, rows);
-  const cur = R.behov && list.some(n => n.key === R.behov) ? R.behov : '';
-  const show = cur ? list.filter(n => n.key === cur) : list;
-  const pick = [...R.pick].map(id => rows.find(r => r._id === id)).filter(Boolean);
+  const all = needs(pr, rows);
   const t = todayStr();
-  return `<div class="rek" data-rek-tag="${esc(p.tag)}">${fix}
-    <div class="rek-bar">
-      <div class="rek-chips"><button class="chip ${cur ? '' : 'on'}" data-rek-behov="">Alla</button>${list.map(n => `<button class="chip ${cur === n.key ? 'on' : ''}" data-rek-behov="${esc(n.key)}">${esc(n.name)}${chosen(n) ? ' ✓' : n.rows.length ? ` <small>${n.rows.length}</small>` : ''}</button>`).join('')}</div>
-      ${pick.length ? `<div class="rek-pickbar"><span>${pick.length} valda för jämförelse</span>${pick.length >= 2 && pick.length <= 4 ? `<a class="btn solid" href="${base(p.tag)}/jamfor/${pick.map(r => encodeURIComponent(r._id)).join(',')}">Jämför</a>` : `<span class="muted">${pick.length < 2 ? 'Välj minst två' : 'Högst fyra'}</span>`}<button class="btn" data-rek-clear>Rensa</button></div>` : ''}
-    </div>
-    ${show.map(n => { const ch = chosen(n); return `<section class="rek-need">
-      <h3><span>${esc(n.name)}</span>${n.strips ? `<small>${n.strips} stripar${n.dates.length ? ' · första ' + esc(shortDate(n.dates.slice().sort()[0])) : ''}</small>` : ''}${ch ? `<span class="st st-done">${esc(ch['Status'])}: ${esc(ch['Namn'] || '')}</span>` : n.dates.some(d => d >= t) ? '<span class="st st-plan">Inget valt</span>' : ''}
+  const scope = R.scope || 'kommande';
+  const isNext = n => n.rows.length || n.dates.some(d => d >= t);
+  const list = scope === 'alla' ? all : all.filter(isNext);
+  const cur = R.behov && all.some(n => n.key === R.behov) ? R.behov : '';
+  const pick = [...R.pick].map(id => rows.find(r => r._id === id)).filter(Boolean);
+  const pickbar = pick.length ? `<div class="rek-pickbar"><span>${pick.length} valda för jämförelse</span>${pick.length >= 2 && pick.length <= 4 ? `<a class="btn solid" href="${base(p.tag)}/jamfor/${pick.map(r => encodeURIComponent(r._id)).join(',')}">Jämför</a>` : `<span class="muted">${pick.length < 2 ? 'Välj minst två' : 'Högst fyra'}</span>`}<button class="btn" data-rek-clear>Rensa</button></div>` : '';
+  const first = n => n.dates.filter(d => d >= t).sort()[0] || n.dates.slice().sort()[0] || '';
+  if (cur) {
+    const n = all.find(x => x.key === cur), ch = chosen(n);
+    return `<div class="rek" data-rek-tag="${esc(p.tag)}">${fix}
+      <div class="rek-bar"><button class="btn" data-rek-behov="">‹ Alla behov</button>${pickbar}</div>
+      <section class="rek-need">
+      <h3><span>${esc(n.name)}</span>${n.strips ? `<small>${n.strips} stripar${first(n) ? ' · ' + (first(n) >= t ? 'nästa ' : 'första ') + esc(shortDate(first(n))) : ''}</small>` : ''}${ch ? `<span class="st st-done">${esc(ch['Status'])}: ${esc(ch['Namn'] || '')}</span>` : n.dates.some(d => d >= t) ? '<span class="st st-plan">Inget valt</span>' : ''}
         <button class="btn rek-add" data-rek-add="${esc(n.key === 'UTAN BEHOV' ? '' : n.name)}">+ Förslag</button></h3>
-      ${n.rows.length ? `<div class="rek-grid">${n.rows.slice().sort((a, b) => STATUS.indexOf(b['Status']) % 4 - STATUS.indexOf(a['Status']) % 4).map(r => card(r, p.tag)).join('')}</div>` : '<p class="empty">Inga förslag än.</p>'}
-    </section>`; }).join('') || '<p class="empty">Inga platser i scenarket och inga rader i Platser för projektet.</p>'}
+      ${n.rows.length ? `<div class="rek-grid">${n.rows.slice().sort((a, b) => STATUS.indexOf(b['Status']) % 4 - STATUS.indexOf(a['Status']) % 4).map(r => card(r, p.tag)).join('')}</div>` : '<p class="empty">Inga förslag än. Lägg till ett med + Förslag.</p>'}
+      </section></div>`;
+  }
+  const sorted = list.slice().sort((a, b) => (first(a) >= t ? 0 : 1) - (first(b) >= t ? 0 : 1) || String(first(a)).localeCompare(String(first(b))) || a.name.localeCompare(b.name, 'sv'));
+  return `<div class="rek" data-rek-tag="${esc(p.tag)}">${fix}
+    <div class="rek-bar"><span class="seg"><button class="${scope === 'kommande' ? 'on' : ''}" data-rek-scope="kommande">Kommande ${all.filter(isNext).length}</button><button class="${scope === 'alla' ? 'on' : ''}" data-rek-scope="alla">Alla ${all.length}</button></span>
+      <button class="btn" data-rek-add="">+ Förslag</button>${pickbar}</div>
+    ${sorted.length ? `<div class="rek-list">${sorted.map(n => { const ch = chosen(n), f = first(n); return `<button class="rek-row" data-rek-behov="${esc(n.key)}">
+      <span class="rek-n"><b>${esc(n.name)}</b><small>${n.strips ? n.strips + ' stripar' : 'Eget behov'}${f ? ' · ' + (f >= t ? 'nästa ' : 'senast ') + esc(shortDate(f)) : ''}</small></span>
+      <span class="rek-s">${ch ? `<span class="st st-done">${esc(ch['Status'])}: ${esc(ch['Namn'] || '')}</span>` : n.rows.length ? `<span class="st st-part">${n.rows.length} förslag</span>` : ''}</span>
+      <span class="rek-go">›</span></button>`; }).join('')}</div>` : `<p class="empty">${scope === 'kommande' ? 'Inget kommande att reka. Visa Alla för hela listan.' : 'Inga platser i scenarket och inga rader i Platser för projektet.'}</p>`}
   </div>`;
 }
 
@@ -174,7 +186,8 @@ export function bindRek() {
     const root = e.target.closest('.rek'); if (!root) return;
     const tag = root.dataset.rekTag, d = x => e.target.closest(x);
     let b;
-    if ((b = d('[data-rek-behov]'))) { R.behov = b.dataset.rekBehov; emit('render'); }
+    if ((b = d('[data-rek-behov]'))) { R.behov = b.dataset.rekBehov; emit('render'); window.scrollTo(0, 0); }
+    else if ((b = d('[data-rek-scope]'))) { R.scope = b.dataset.rekScope; emit('render'); }
     else if ((b = d('[data-rek-map]'))) { R.map[b.dataset.rekMap] = !R.map[b.dataset.rekMap]; emit('render'); }
     else if ((b = d('[data-rek-open]'))) { R.open = R.open === b.dataset.rekOpen ? null : b.dataset.rekOpen; emit('render'); }
     else if (d('[data-rek-clear]')) { R.pick.clear(); emit('render'); }

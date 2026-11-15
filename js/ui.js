@@ -39,7 +39,7 @@ export function noteRow(n) {
     <div class="glyph">≡</div>
     <div class="main">
       <div class="title">${esc(n.title)}<span class="tags">${tagHtml(n.tags)}</span></div>
-      <div class="sub"><span>${esc(n.folder)}</span>${n.modified ? `<i class="sep">·</i><span>${esc(shortDate(ymd(new Date(n.modified))))}</span>` : ''}</div>
+      <div class="sub">${[(n.tags || []).includes(String(n.folder || '').toUpperCase()) ? '' : n.folder, n.modified ? shortDate(ymd(new Date(n.modified))) : ''].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join('<i class="sep">·</i>')}</div>
     </div></a>`;
 }
 

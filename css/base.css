@@ -150,6 +150,12 @@ main { padding: 0 var(--gutter) calc(var(--tabh) + env(safe-area-inset-bottom) +
 .fab { position: fixed; right: var(--gutter); z-index: 21; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--bg); font-size: 26px; font-weight: 300; box-shadow: 0 6px 20px rgba(0,0,0,.16); bottom: calc(var(--tabh) + env(safe-area-inset-bottom) + 16px); }
 .fab.claude { bottom: calc(var(--tabh) + env(safe-area-inset-bottom) + 80px); width: 38px; height: 38px; right: calc(var(--gutter) + 7px); font-size: 15px; font-weight: 600; background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
 @media (min-width: 900px) { .fab { bottom: 28px; right: 28px; } .fab.claude { bottom: 92px; right: 35px; } }
+/* Dator med sidomeny: knapparna ligger längst ner i sidomenyn i stället för ovanpå innehållet */
+@media (min-width: 900px) {
+  .fab { right: auto; left: calc(var(--sidew) - 64px); bottom: 18px; width: 44px; height: 44px; font-size: 22px; box-shadow: 0 4px 14px rgba(0,0,0,.14); }
+  .fab.claude { left: calc(var(--sidew) - 110px); right: auto; bottom: 21px; width: 38px; height: 38px; }
+  .side { padding-bottom: 80px; }
+}
 
 /* ---------- dialoger ---------- */
 dialog { border: 0; border-radius: 16px; padding: 20px; width: min(540px, calc(100vw - 24px)); max-height: calc(100dvh - 40px); overflow: auto; background: var(--surface); color: var(--ink); box-shadow: 0 24px 70px rgba(0,0,0,.28); }

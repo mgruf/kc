@@ -195,3 +195,15 @@ a.prod-kv:hover b { text-decoration: underline; }
 .prod-sumnote { font-size: 13px; color: var(--ink-3); padding: 0 0 6px; }
 .prod-sum .more-link { display: inline-block; margin-top: 8px; font-size: 13px; border-bottom: 1px solid var(--line-2); }
 .prod-scenes.has-sel .c-tod, .prod-scenes.has-sel .c-cast, .prod-scenes.has-sel .c-ie { display: none; }
+.prod-h3 { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin: 28px 0 8px; font-weight: 600; }
+.prod-more summary { cursor: pointer; font-size: 13px; color: var(--ink-2); padding: 10px 0; }
+/* rek: kompakt behovslista */
+.rek-list { display: grid; border-top: 1px solid var(--line); }
+.rek-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; gap: 12px; align-items: center; text-align: left; padding: 10px 4px; border-bottom: 1px solid var(--line); background: none; width: 100%; }
+.rek-row:hover { background: var(--sel); }
+.rek-n b { display: block; font-weight: 520; font-size: 14.5px; }
+.rek-n small { color: var(--ink-3); font-size: 12px; }
+.rek-go { color: var(--ink-3); }
+.rek-bar .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.rek-bar .seg button { padding: 6px 12px; font-size: 13px; background: none; color: var(--ink-2); }
+.rek-bar .seg button.on { background: var(--ink); color: var(--bg); }

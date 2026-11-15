@@ -167,3 +167,29 @@
 .btn.more { margin: 24px 0; }
 
 .item.task .title { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* projektöversikt: band med huvud- och sidokolumn (som Idag) */
+.pboard { display: flex; flex-direction: column; gap: 12px; padding-top: 10px; }
+.pband { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr); gap: 12px; align-items: start; }
+.pband.full { display: block; }
+.pband.noside, .pband.nomain { grid-template-columns: minmax(0, 1fr); }
+.pband.noside .pside, .pband.nomain .pmain { display: none; }
+.pcol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.pboard .dtools { display: flex; gap: 12px; align-items: center; padding-top: 6px; }
+.pboard .dtools .btn:not(.solid) { border-color: transparent; background: none; color: var(--ink-3); }
+.w-calm { background: none; border-style: dashed; font-size: 13px; color: var(--ink-3); padding: 10px 14px; }
+@media (max-width: 900px) {
+  .pband, .pband.noside, .pband.nomain { display: flex; flex-direction: column; gap: 12px; }
+  .pcol, .pband.noside .pside, .pband.nomain .pmain { display: contents; }
+}
+/* statusrad */
+.pstrip { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 14px; }
+.ps-i { display: grid; gap: 1px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); min-width: 0; color: var(--ink); }
+a.ps-i:hover { border-color: var(--line-2); }
+.ps-i small { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.ps-i b { font-size: 14px; font-weight: 560; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.ps-i.fire b { color: var(--fire); }
+.ps-bar { display: block; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; margin-top: 4px; }
+.ps-bar i { display: block; height: 100%; background: var(--ink); }
+.btn.icon { padding-left: 10px; padding-right: 10px; }
+@media (max-width: 760px) { .pstrip { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: -16px; margin-right: -16px; padding: 0 16px; } .pstrip::-webkit-scrollbar { display: none; } }

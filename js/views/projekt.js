@@ -1,14 +1,14 @@
 /* PROJEKT – alla projekt och projektsidan: översikt med widgets, produktion, uppgifter, anteckningar, personer, filer, samlingar. */
 import {
   S, api, emit, $, $$, esc, toast, ymd, parseYmd, addDays, todayStr, shortDate, dayLabel, MONTHS, DAYS, relTime,
-  projects, cfgProject, visible, modeCls, tagHtml, tagColor, ctx, evDay, tagDate, isFire, people, initials, contactOf, claudeUrl, go,
+  projects, cfgProject, visible, modeCls, tagHtml, tagColor, ctx, evDay, tagDate, isFire, people, initials, contactOf, claudeUrl, go, isShootDup,
 } from '../core.js';
 import { taskRow, eventRow, noteRow, section, empty, head, openTask, openEvent } from '../ui.js';
 import { renderProduction, productionSummary } from './produktion.js';
 import { renderCollectionView } from './samling.js';
 import { renderScript } from './manus.js';
 import { renderTeam, teamFor, openTeamAdd } from './team.js';
-import { planTimelineHtml } from './plan.js';
+import { planTimelineHtml, embedPlan } from './plan.js';
 
 const TABS = [['oversikt', 'Översikt'], ['produktion', 'Produktion'], ['manus', 'Manus'], ['plan', 'Plan'], ['team', 'Team'], ['uppgifter', 'Uppgifter'], ['kalender', 'Kalender'], ['anteckningar', 'Anteckningar'], ['mejl', 'Mejl'], ['filer', 'Filer'], ['samlingar', 'Samlingar']];
 let editing = false;
@@ -51,30 +51,32 @@ function nextMilestone(p) {
   const t = todayStr(), c = p.cfg || {};
   const items = [
     ...(c.deadlines || []).map(x => ({ date: x.date, name: x.name })),
-    ...(c.phases || []).filter(x => x.milestone).map(x => ({ date: x.start, name: x.name })),
+    ...(c.phases || []).filter(x => x.milestone).map(x => ({ date: x.start, name: (x.film ? 'F' + x.film + ' ' : '') + x.name })),
+    ...(c.shoot?.lastDay ? [{ date: c.shoot.lastDay, name: 'Sista inspelningsdag' }] : []),
   ].filter(x => x.date >= t).sort((a, b) => a.date.localeCompare(b.date));
   return items[0];
 }
 
 // ---------- projektsidan ----------
 function page(el, p, tab, rest) {
+  if (tab === 'plan' && el.querySelector(`iframe.v-plan-frame[data-key="emb/${CSS.escape(p.tag)}"]`)) return; // rita inte om planen vid bakgrundshämtning
   const c = p.cfg || {};
   const hasProd = !!(c.hasProduction || c.shoot || c.sceneSheetUrl);
   const tabs = TABS.filter(([k]) => k !== 'produktion' || hasProd);
   const counts = { team: safeCount(() => teamFor(p.tag).length), uppgifter: p.tasks.length, anteckningar: p.notes.length, kalender: p.events.filter(e => evDay(e) >= todayStr()).length, samlingar: p.rows.length };
   el.innerHTML = `<div class="crumb"><a href="#/projekt">Projekt</a></div>` +
     head(`<span class="ptag" style="--tc:${tagColor(p.tag)}">${esc(p.tag.slice(1))}</span>${esc(p.name)}`, [c.phase, c.client].filter(Boolean).map(esc).join(' · '),
-      `<button class="btn" data-pteam>+ Person</button>${tab === 'oversikt' ? `<button class="btn" data-pedit>${editing ? 'Klar' : 'Anpassa'}</button>` : ''}<button class="btn" data-ptask>+ Uppgift</button>${c.rowId ? `<a class="btn" href="#/samling/Projekt/${encodeURIComponent(c.rowId)}">Inställningar</a>` : ''}`) +
+      `<button class="btn" data-pteam>+ Person</button><button class="btn solid" data-ptask>+ Uppgift</button>${c.rowId ? `<a class="btn icon" href="#/samling/Projekt/${encodeURIComponent(c.rowId)}" title="Projektets inställningar" aria-label="Inställningar">⚙</a>` : ''}`) +
+    (tab === 'oversikt' ? statusStrip(p) : '') +
     `<nav class="ptabs">${tabs.map(([k, l]) => `<a href="#/projekt/${encodeURIComponent(p.tag)}/${k}" class="${k === tab ? 'on' : ''}">${l}${counts[k] ? `<span>${counts[k]}</span>` : ''}</a>`).join('')}</nav>
     <div class="ptab" id="ptab"></div>`;
   const box = $('#ptab', el);
   el.querySelector('[data-ptask]').onclick = () => openTask(null, { tag: p.tag });
   el.querySelector('[data-pteam]').onclick = () => openTeamAdd({ tag: p.tag });
-  el.querySelector('[data-pedit]')?.addEventListener('click', () => { if (editing) saveLayout(p); editing = !editing; emit('render'); });
   switch (tab) {
     case 'produktion': return renderProduction(box, p, rest[0] || 'oversikt', rest.slice(1));
     case 'manus': return renderScript(box, p, rest);
-    case 'plan': location.hash = '#/plan/' + encodeURIComponent(p.tag); return;
+    case 'plan': return embedPlan(box, p.tag);
     case 'team': return renderTeam(box, p, rest);
     case 'uppgifter': {
       const open = p.tasks.slice().sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
@@ -153,23 +155,46 @@ async function addLink(tag) {
   try { await api('setLinks', { tag, links }, true); } catch { toast('Kunde inte spara'); }
 }
 
+// ---------- statusrad överst på översikten ----------
+function statusStrip(p) {
+  const c = p.cfg || {}, t = todayStr();
+  const sh = c.shoot;
+  const next = nextMilestone(p);
+  const open = p.tasks.filter(x => !S.done[x.id] && !x.waiting).length;
+  const items = [
+    sh && `<a class="ps-i" href="#/projekt/${encodeURIComponent(p.tag)}/produktion"><small>Inspelning</small><b>Dag ${sh.doneDays} av ${sh.totalDays}</b><i class="ps-bar"><i style="width:${Math.round(sh.doneDays / sh.totalDays * 100)}%"></i></i></a>`,
+    sh && `<span class="ps-i"><small>Scener filmade</small><b>${sh.filmed} av ${sh.scenes}${sh.restad ? ` · <span class="firetext">${sh.restad} restade</span>` : ''}</b></span>`,
+    (sh?.today || sh?.next) && (() => { const d = sh.today || sh.next; return `<a class="ps-i" href="#/projekt/${encodeURIComponent(p.tag)}/produktion/dagar/${d.date}"><small>${sh.today ? 'Idag' : 'Nästa inspelningsdag'}</small><b>Dag ${d.day} · ${esc(sh.today ? (d.note || '') : dayLabel(d.date))}${!sh.today && d.note ? ' · ' + esc(d.note) : ''}</b></a>`; })(),
+    next && `<span class="ps-i"><small>Nästa milstolpe</small><b>${esc(next.name)} · ${esc(dayLabel(next.date))}</b></span>`,
+    `<a class="ps-i" href="#/projekt/${encodeURIComponent(p.tag)}/uppgifter"><small>Uppgifter</small><b>${open} öppna</b></a>`,
+    p.fire.length && `<a class="ps-i fire" href="#/projekt/${encodeURIComponent(p.tag)}/uppgifter"><small>Brinner</small><b>${p.fire.length}</b></a>`,
+  ].filter(Boolean);
+  return `<div class="pstrip">${items.join('')}</div>`;
+}
+
 // ---------- översikt: widgets ----------
 const W = {
   summary:  { title: 'Sammanfattning', size: 'l' },
-  shoot:    { title: 'Inspelning', size: 'm', when: p => p.cfg?.shoot || p.cfg?.hasProduction },
-  upcoming: { title: 'Närmast', size: 'm' },
-  tasks:    { title: 'Uppgifter', size: 'm' },
-  waiting:  { title: 'Väntar på svar', size: 'm' },
-  timeline: { title: 'Tidslinje', size: 'l', when: p => p.cfg?.phases?.length || p.cfg?.shootDays?.length },
-  budget:   { title: 'Budget', size: 'm', when: p => p.cfg?.budget },
-  files:    { title: 'Filer', size: 'm' },
+  shoot:    { title: 'Inspelning', size: 's', when: p => p.cfg?.shoot || p.cfg?.hasProduction },
+  upcoming: { title: 'Närmast', size: 'l' },
+  tasks:    { title: 'Uppgifter', size: 'l' },
+  waiting:  { title: 'Väntar på svar', size: 's' },
+  timeline: { title: 'Tidslinje', size: 'xl', when: p => p.cfg?.phases?.length || p.cfg?.shootDays?.length },
+  budget:   { title: 'Budget', size: 's', when: p => p.cfg?.budget },
+  files:    { title: 'Filer', size: 's' },
   scripts:  { title: 'Manusversioner', size: 's', when: p => p.cfg?.scripts?.length },
-  decisions:{ title: 'Beslut', size: 'm' },
-  team:     { title: 'Team', size: 'm' },
-  notes:    { title: 'Anteckningar', size: 'm' },
+  decisions:{ title: 'Beslut', size: 's' },
+  team:     { title: 'Team', size: 's' },
+  notes:    { title: 'Anteckningar', size: 'l' },
 };
-const DEFAULT_JOBB = ['summary', 'shoot', 'upcoming', 'tasks', 'waiting', 'team', 'timeline', 'budget', 'decisions', 'files', 'scripts', 'notes'];
+// S = sidokolumnen, L = huvudkolumnen, XL = hela bredden. Ordningen är också ordningen på mobilen.
+const DEFAULT_JOBB = ['summary', 'upcoming', 'tasks', 'team', 'waiting', 'files', 'scripts', 'timeline', 'notes', 'budget', 'decisions'];
 const DEFAULT_PRIVAT = ['summary', 'upcoming', 'tasks', 'notes', 'files'];
+const zone = sz => sz === 'xl' ? 'full' : sz === 's' ? 'side' : 'main';
+const SIZE_LABEL = { s: 'Sida', m: 'Huvud', l: 'Huvud', xl: 'Bred' };
+const CALM = {
+  waiting: p => !p.tasks.some(x => x.waiting) && 'Du väntar inte på något',
+};
 function layoutFor(p) {
   const saved = (S.data?.layouts || {})[p.tag]; if (saved?.length) return saved.filter(w => W[w.id]);
   return (p.mode === 'privat' ? DEFAULT_PRIVAT : DEFAULT_JOBB).filter(id => !W[id].when || W[id].when(p)).map(id => ({ id, size: W[id].size }));
@@ -182,18 +207,33 @@ function widgets(box, p) {
   const layout = layoutFor(p);
   const used = new Set(layout.map(w => w.id));
   const free = Object.keys(W).filter(id => !used.has(id));
-  box.innerHTML = `<div class="grid ${editing ? 'editing' : ''}">
-    ${layout.map((w, i) => `<div class="w size-${w.size}" data-w="${i}" draggable="${editing}">
-      <div class="wtools"><button data-wmove="-1" aria-label="Flytta bakåt">‹</button><button data-wsize aria-label="Storlek">${w.size.toUpperCase()}</button><button data-wmove="1" aria-label="Flytta framåt">›</button><button data-wremove aria-label="Ta bort">×</button></div>
-      <h4>${esc(W[w.id].title)}</h4>${widget(w.id, p)}</div>`).join('')}
-    ${editing && free.length ? `<div class="w size-s addw"><h4>Lägg till</h4><div class="chips">${free.map(id => `<button class="chip" data-wadd="${id}">${esc(W[id].title)}</button>`).join('')}</div></div>` : ''}
+  const calm = [];
+  const cell = (w, i) => {
+    if (!editing && CALM[w.id]) { const c = CALM[w.id](p); if (c) { calm.push(c); return calm.length === 1 ? '<!--calm-->' : ''; } }
+    return `<div class="w pw-${w.id}" data-w="${i}" draggable="${editing}" style="order:${i}">
+      <div class="wtools"><button data-wmove="-1" aria-label="Flytta bakåt">‹</button><button data-wsize aria-label="Placering">${SIZE_LABEL[w.size] || 'Huvud'}</button><button data-wmove="1" aria-label="Flytta framåt">›</button><button data-wremove aria-label="Ta bort">×</button></div>
+      <h4>${esc(W[w.id].title)}</h4>${widget(w.id, p)}</div>`;
+  };
+  const bands = []; let band = null;
+  layout.forEach((w, i) => {
+    if (zone(w.size) === 'full') { band = null; bands.push({ full: cell(w, i) }); return; }
+    if (!band) bands.push(band = { main: [], side: [] });
+    band[zone(w.size)].push(cell(w, i));
+  });
+  const calmHtml = calm.length ? `<div class="w w-calm" style="order:999">✓ ${calm.map(esc).join(' · ')}</div>` : '';
+  const fill = x => x.replace('<!--calm-->', calmHtml);
+  box.innerHTML = `<div class="pboard ${editing ? 'editing' : ''}">
+    ${bands.map(b => b.full != null ? `<div class="pband full">${fill(b.full)}</div>` : `<div class="pband ${b.side.join('').trim() ? '' : 'noside'} ${b.main.join('').trim() ? '' : 'nomain'}"><div class="pcol pmain">${fill(b.main.join(''))}</div><div class="pcol pside">${fill(b.side.join(''))}</div></div>`).join('')}
+    ${editing && free.length ? `<div class="pband full"><div class="w addw"><h4>Lägg till</h4><div class="chips">${free.map(id => `<button class="chip" data-wadd="${id}">${esc(W[id].title)}</button>`).join('')}</div></div></div>` : ''}
+    <div class="dtools"><button class="btn ${editing ? 'solid' : ''}" data-pedit>${editing ? 'Klar' : 'Anpassa översikten'}</button>${editing ? '<span class="hint">Flytta med ‹ › eller dra. Placering: Sida, Huvud eller Bred.</span>' : ''}</div>
   </div>`;
+  box.querySelector('[data-pedit]').onclick = () => { if (editing) saveLayout(p); editing = !editing; emit('render'); };
   const setL = l => { (S.data.layouts ||= {})[p.tag] = l; emit('render'); };
   box.querySelectorAll('[data-wmove],[data-wsize],[data-wremove],[data-wadd]').forEach(b => b.onclick = () => {
     const l = layoutFor(p).map(x => ({ ...x })), i = Number(b.closest('[data-w]')?.dataset.w);
     if (b.dataset.wadd) l.push({ id: b.dataset.wadd, size: W[b.dataset.wadd].size });
     else if (b.hasAttribute('data-wremove')) l.splice(i, 1);
-    else if (b.hasAttribute('data-wsize')) l[i].size = { s: 'm', m: 'l', l: 's' }[l[i].size] || 'm';
+    else if (b.hasAttribute('data-wsize')) l[i].size = { s: 'l', m: 'xl', l: 'xl', xl: 's' }[l[i].size] || 'l';
     else { const j = i + Number(b.dataset.wmove); if (j >= 0 && j < l.length) [l[i], l[j]] = [l[j], l[i]]; }
     setL(l);
   });
@@ -218,7 +258,7 @@ function widget(id, p) {
     case 'shoot': return productionSummary(p);
     case 'upcoming': {
       const items = [
-        ...p.events.filter(e => evDay(e) >= t).map(e => ({ d: evDay(e), html: eventRow(e, { day: true }) })),
+        ...p.events.filter(e => evDay(e) >= t && !isShootDup(e)).map(e => ({ d: evDay(e), html: eventRow(e, { day: true }) })),
         ...p.notes.flatMap(n => (n.tags || []).map(tagDate).filter(d => d && d >= t).map(d => ({ d, html: noteRow(n) }))),
         ...(c.deadlines || []).filter(x => x.date >= t).map(x => ({ d: x.date, html: planRow(x) })),
         ...(c.phases || []).filter(x => x.milestone && x.start >= t).map(x => ({ d: x.start, html: planRow({ date: x.start, name: x.name, text: 'Milstolpe' }) })),
@@ -245,10 +285,10 @@ function widget(id, p) {
       let rows = []; try { rows = teamFor(p.tag) || []; } catch {}
       const by = {}; (Array.isArray(rows) ? rows : []).forEach(r => { const k = r['Typ'] || 'Övrigt'; by[k] = (by[k] || 0) + 1; });
       const ks = Object.keys(by);
-      return (ks.length ? ks.map(k => `<div class="kv"><span>${esc(k)}</span><b>${by[k]}</b></div>`).join('') : empty('Ingen kopplad än.'))
+      return (ks.length ? ks.map(k => `<div class="kv"><span>${esc(k)}</span><b>${by[k]}</b></div>`).join('') : c.crew ? `<a class="file" href="${esc(c.crew.url)}" target="_blank" rel="noopener"><span>Crewlistan</span><small>${esc(c.crew.name)}${c.crew.updated ? ' · ' + esc(shortDate(c.crew.updated)) : ''}</small></a><p class="hint" style="margin:6px 0 0">Ingen i KC:s team än. Lägg till personer så kopplas de till projektet.</p>` : empty('Ingen kopplad än.'))
         + `<div class="vact" style="margin-top:10px"><button class="btn" data-team-add='${esc(JSON.stringify({ tag: p.tag }))}'>+ Person</button><a class="more-link" style="margin:0" href="#/projekt/${encodeURIComponent(p.tag)}/team">Hela teamet</a></div>`;
     }
-    case 'timeline': try { return planTimelineHtml(p.cfg ? { ...p.cfg, tag: p.tag } : p, { weeks: 16 }) || timelineHtml(p); } catch { return timelineHtml(p); }
+    case 'timeline': try { return (c.phases || []).length ? planTimelineHtml({ ...c, tag: p.tag }, { weeks: 16 }) : timelineHtml(p); } catch { return timelineHtml(p); }
   }
   return '';
 }

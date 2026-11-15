@@ -23,6 +23,18 @@ export function render(el, args) {
   el.querySelector('.v-plan-tabs').replaceWith(tabsEl(tag));
 }
 
+/** Planen inbäddad i projektsidans flik Plan (samma yta, utan egen rubrik). */
+export function embedPlan(box, tag) {
+  const c = cfgProject(tag), src = (c && c._src) || 'jobb';
+  if (!c?.planSheetUrl && !(c?.phases || []).length) {
+    box.innerHTML = `<div class="v-plan-none"><p>Projektet har ingen produktionsplan än.</p><p class="hint">Koppla ett planark i projektets inställningar (fältet Produktionsplan), eller skapa ett från Produktionsplan → Alla projekt → Ny produktion.</p><a class="btn" href="#/plan">Öppna Produktionsplan</a></div>`;
+    return;
+  }
+  const key = 'emb/' + tag;
+  const f = box.querySelector('iframe.v-plan-frame'); if (f && f.dataset.key === key) return;
+  box.innerHTML = `<div class="v-plan v-plan-emb"><iframe class="v-plan-frame" data-key="${esc(key)}" title="Produktionsplan" src="plan.html?src=${encodeURIComponent(src)}#${encodeURIComponent(tag)}"></iframe></div>`;
+}
+
 function tabsEl(tag) {
   const d = document.createElement('nav'); d.className = 'v-plan-tabs';
   const ps = planProjects();

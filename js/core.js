@@ -119,15 +119,23 @@ export async function loadContacts(force) {
   return S.contacts;
 }
 
+// Produktionen (scenarket + mappar) tar tid att läsa – senaste svaret sparas i webbläsaren och visas direkt.
+const prodLoading = {};
 export async function loadProduction(tag, force) {
-  if (S.prod[tag] && !force) return S.prod[tag];
+  if (S.prod[tag] && !S.prod[tag]._stale && !force) return S.prod[tag];
+  if (prodLoading[tag]) return prodLoading[tag];
+  if (!S.prod[tag]) { const c = store.get('prod_' + tag, null); if (c) { S.prod[tag] = { ...c, _stale: true }; emit('render'); } }
   const p = (S.data?.projects || []).find(x => x.tag === tag);
+  return prodLoading[tag] = (async () => {
   try {
     const r = await api('production', { tag }, false, p?._src || 'jobb');
     S.prod[tag] = r.production;
-  } catch (e) { S.prod[tag] = { error: e.message }; }
+    store.set('prod_' + tag, r.production);
+  } catch (e) { if (!S.prod[tag] || !S.prod[tag]._stale) S.prod[tag] = { error: e.message }; }
+  finally { delete prodLoading[tag]; }
   emit('render');
   return S.prod[tag];
+  })();
 }
 
 export async function loadNoteText(n) {
@@ -333,3 +341,11 @@ export function fireList() {
 }
 export const FIRE_EXTRA = [];   // andra moduler (mejl, delegering, avtal …) lägger till egna bränder här
 export const fireCount = () => fireList().length;
+
+/** Kalenderhändelser som bara upprepar en inspelningsdag ("Inspelningsdag 45", "Inpelningsdag 45"). */
+export const SHOOT_EV = /\bin?s?pelningsdag\s*\d+/i;
+export function isShootDup(e) {
+  if (!SHOOT_EV.test(e.title || '')) return false;
+  const day = e.allDay ? e.start : ymd(new Date(e.start));
+  return cfgProjects().some(p => (p.shootDays || []).some(d => d.date === day));
+}

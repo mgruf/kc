@@ -32,3 +32,7 @@
 .v-plan-tl .b.bg span { color: var(--ink-2); }
 .v-plan-tl .d { position: absolute; top: 4px; width: 9px; height: 9px; transform: translateX(-4.5px) rotate(45deg); background: var(--ink); border: 1.5px solid var(--surface); z-index: 3; }
 .v-plan-tl:hover .n { color: var(--ink); }
+.v-plan-emb { margin-top: 8px; }
+.v-plan-emb .v-plan-frame { height: calc(100dvh - 210px); }
+.v-plan-none { padding: 28px 0; display: grid; gap: 8px; justify-items: start; color: var(--ink-2); }
+.v-plan-none p { margin: 0; }

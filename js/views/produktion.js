@@ -3,24 +3,27 @@
 import {
   S, $, esc, ymd, parseYmd, addDays, todayStr, shortDate, dayLabel, week, relTime, DAYS, MONTHS,
   loadProduction, emit, personIn, api, toast, events, projects, hhmm,
+  store,
 } from '../core.js';
 import { callsheetHtml, bindCallsheet } from './callsheet.js';
 import { rekHtml, bindRek } from './rek.js';
 import { loadLatestScripts, eighthsStr } from './manus.js';
 import { teamFor } from './team.js';
 
-const SUBS = [['oversikt', 'Översikt'], ['dagar', 'Dagar'], ['scener', 'Scener'], ['roller', 'Roller'], ['platser', 'Platser'], ['rek', 'Rek'], ['callsheet', 'Callsheet'], ['rapporter', 'Rapporter'], ['callsheets', 'Callsheets'], ['dokument', 'Dokument']];
+const SUBS = [['oversikt', 'Översikt'], ['dagar', 'Dagar'], ['scener', 'Scener'], ['roller', 'Roller'], ['platser', 'Platser'], ['rek', 'Rek'], ['callsheet', 'Callsheet'], ['rapporter', 'Rapporter'], ['dokument', 'Dokument'], ['callsheets', 'Arkiv', true]];
+// 'callsheets' (PDF-arkivet) visas under Callsheet; länken finns kvar för gamla bokmärken.
 const base = p => '#/projekt/' + encodeURIComponent(p.tag) + '/produktion';
 const mapUrl = (place, addr) => 'https://maps.google.com/?q=' + encodeURIComponent(addr || place);
 const STATE = { film: '', status: '', place: '', q: '', sort: 'scene', dir: 1, scene: null };
 
 // ---------- hjälp ----------
 const up = s => String(s || '').toUpperCase();
-const statusOf = sc => up(sc.status || sc.dpr || '');
+const statusOf = sc => up(sc.dpr || sc.status || '');   // DPR vinner över planen (samma som Apps Script)
+const isFilmed = sc => statusOf(sc).trim() === 'FILMAD';
 function statusTag(st) {
   const s = up(st);
   if (!s) return '';
-  const cls = /RESTAD/.test(s) ? 'st-fire' : /DELVIS/.test(s) ? 'st-part' : /FILMAD/.test(s) ? 'st-done' : /EJ SCHEMA/.test(s) ? 'st-none' : 'st-plan';
+  const cls = /RESTAD/.test(s) ? 'st-fire' : /DELVIS/.test(s) ? 'st-part' : /^FILMAD$/.test(s.trim()) ? 'st-done' : /EJ SCHEMA/.test(s) ? 'st-none' : 'st-plan';
   const label = s.charAt(0) + s.slice(1).toLowerCase();
   return `<span class="st ${cls}">${esc(label)}</span>`;
 }
@@ -46,8 +49,8 @@ const fullDate = s => { const d = parseYmd(s); return `${DAYS[d.getDay()]} ${d.g
 export function renderProduction(el, p, sub, args = []) {
   sub = SUBS.some(s => s[0] === sub) ? sub : 'oversikt';
   const pr = S.prod[p.tag];
-  if (!pr) loadProduction(p.tag);
-  const tabs = `<nav class="prod-tabs">${SUBS.map(([k, l]) => `<a href="${base(p)}/${k}" class="${k === sub ? 'on' : ''}">${l}</a>`).join('')}
+  if (!pr || pr._stale) loadProduction(p.tag);
+  const tabs = `<nav class="prod-tabs">${SUBS.filter(x => !x[2]).map(([k, l]) => `<a href="${base(p)}/${k}" class="${k === sub || (k === 'callsheet' && sub === 'callsheets') ? 'on' : ''}">${l}</a>`).join('')}
     <button class="btn prod-refresh" data-prod-refresh="${esc(p.tag)}">Uppdatera</button></nav>`;
   let body;
   if (!pr) body = `<div class="prod-loading"><span class="spin"></span>Läser scenarket och projektmappen…</div>`;
@@ -59,10 +62,11 @@ export function renderProduction(el, p, sub, args = []) {
       if (pr.manus === undefined && !pr.manusLoading) { pr.manusLoading = true; loadLatestScripts(p.tag, p.cfg?._src).then(m => { pr.manus = m; pr.manusLoading = false; emit('render'); }).catch(() => { pr.manus = []; pr.manusLoading = false; }); }
       if (pr.manus?.length) v = manusView(pr);
     }
-    const f = { oversikt, dagar, scener, roller, platser, rek: rekHtml, callsheet: callsheetHtml, rapporter, callsheets, dokument }[sub];
+    const csAll = (p, pr, args) => callsheetHtml(p, pr, args) + `<h3 class="prod-h3">Arkiv · utskickade callsheets</h3>` + callsheets(p, pr);
+    const f = { oversikt, dagar, scener, roller, platser, rek: rekHtml, callsheet: csAll, rapporter, callsheets: csAll, dokument }[sub];
     body = (v !== pr && sub !== 'oversikt' ? `<p class="hint prod-manus-note">Ur inlästa manus (${pr.manus.map(m => esc((m.film || 'Manus') + ' ' + m.version)).join(', ')}). <a href="#/projekt/${encodeURIComponent(p.tag)}/manus">Manusfliken</a></p>` : '') + f(p, v, args);
   }
-  el.innerHTML = `<div class="prod prod-${sub}" data-ptag="${esc(p.tag)}">${tabs}<div class="prod-body">${body}</div></div>`;
+  el.innerHTML = `<div class="prod pv-${sub}" data-ptag="${esc(p.tag)}">${tabs}<div class="prod-body">${body}</div></div>`;
   bindOnce();
   bindCallsheet(tag => projects().find(x => x.tag === tag));
   bindRek();
@@ -75,8 +79,8 @@ function oversikt(p, pr) {
   const done = days.filter(d => d.date < t).length, cur = days.find(d => d.date === t), next = days.find(d => d.date > t);
   const total = days.length;
   const scenes = (pr.scenes || []).filter(s => !s.omitted);
-  const filmed = scenes.filter(s => /FILMAD/.test(statusOf(s)) && !/DELVIS/.test(statusOf(s))).length;
-  const confirmed = scenes.filter(s => /FILMAD/.test(up(s.dpr))).length;
+  const filmed = scenes.filter(isFilmed).length;
+  const confirmed = scenes.filter(s => up(s.dpr).trim() === 'FILMAD').length;
   const restad = scenes.filter(s => /RESTAD/.test(statusOf(s)));
   const noDate = restad.filter(s => !s.newDate);
   const pct = total ? Math.round((done + (cur ? 1 : 0)) / total * 100) : 0;
@@ -342,8 +346,9 @@ function callsheets(p, pr) {
   const list = (pr.callsheets || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.name).localeCompare(String(a.name)));
   if (!list.length) return '<p class="empty">Inga callsheets i callsheetmappen.</p>';
   const dayOf = Object.fromEntries((pr.days || []).map(d => [d.date, d]));
-  return `<div class="prod-list">${list.map(c => `<a class="prod-file" href="${esc(c.url)}" target="_blank" rel="noopener">
-      <span class="fi">PDF</span><span class="fn"><b>${esc(dayLabel(c.date))}${dayOf[c.date] ? ' · dag ' + dayOf[c.date].day : ''}</b><small>${esc(c.name)}</small></span><span class="fm">${esc(shortDate(c.date))}</span></a>`).join('')}</div>`;
+  const row = c => `<a class="prod-file" href="${esc(c.url)}" target="_blank" rel="noopener">
+      <span class="fi">PDF</span><span class="fn"><b>${esc(dayLabel(c.date))}${dayOf[c.date] ? ' · dag ' + dayOf[c.date].day : ''}</b><small>${esc(c.name)}</small></span><span class="fm">${esc(shortDate(c.date))}</span></a>`;
+  return `<div class="prod-list">${list.slice(0, 5).map(row).join('')}</div>` + (list.length > 5 ? `<details class="prod-more"><summary>Visa alla ${list.length}</summary><div class="prod-list">${list.slice(5).map(row).join('')}</div></details>` : '');
 }
 
 // ---------- dokument ----------
@@ -373,7 +378,7 @@ export function productionSummary(p) {
   if (pr && !pr.error && (pr.days || []).length) {
     const days = pr.days, done = days.filter(d => d.date < t).length, cur = days.find(d => d.date === t), next = days.find(d => d.date > t);
     const sc = (pr.scenes || []).filter(s => !s.omitted);
-    const filmed = sc.filter(s => /FILMAD/.test(statusOf(s)) && !/DELVIS/.test(statusOf(s))).length;
+    const filmed = sc.filter(isFilmed).length;
     const restad = sc.filter(s => /RESTAD/.test(statusOf(s)) && !s.newDate).length;
     const nd = cur || next;
     return summaryHtml(p, done + (cur ? 1 : 0), days.length, filmed, sc.length, restad, nd ? { label: cur ? 'Idag' : 'Nästa', day: nd.day, date: nd.date, note: nd.note } : null);
@@ -515,9 +520,32 @@ const DPR = {};
 function loadDpr(p, st) {
   st.loading = true; st.error = '';
   api('dprMails', { tag: p.tag, days: st.days }, false, p.cfg?._src || 'jobb')
-    .then(r => { st.reports = r.reports || []; st.query = r.query || ''; })
+    .then(r => { st.reports = r.reports || []; st.query = r.query || ''; readPdfReports(p, st); })
     .catch(e => { st.error = e.message; })
     .finally(() => { st.loading = false; st.loaded = true; emit('render'); });
+}
+// Rapporter som bara är en PDF-bilaga (scriptans blankett): läs bilagan i webbläsaren. Resultatet sparas per mejl.
+async function readPdfReports(p, st) {
+  const todo = (st.reports || []).filter(r => !(r.filmed || []).length && !(r.notFilmed || []).length && (r.attachments || []).some(a => typeof a === 'object' && /pdf/i.test(a.mime || a.name)));
+  if (!todo.length) return;
+  const { parseDprPdf } = await import('../dpr-pdf.js');
+  for (const r of todo) {
+    const cached = store.get('dpr_' + r.id, null);
+    let res = cached;
+    if (!res) {
+      r.pdfLoading = true; emit('render');
+      try {
+        const a = r.attachments.find(x => /pdf/i.test(x.mime || x.name));
+        const f = await api('dprAttachment', { id: r.id, index: a.index }, false, p.cfg?._src || 'jobb');
+        res = await parseDprPdf(f.data, new Date(r.date).getFullYear());
+        if (res) store.set('dpr_' + r.id, res);
+      } catch (e) { r.pdfError = e.message; }
+      r.pdfLoading = false;
+    }
+    if (res) Object.assign(r, { filmed: res.filmed, notFilmed: res.notFilmed, openTotal: res.openTotal, dropped: res.dropped, fromPdf: true,
+      day: r.day || res.day, reportDate: res.reportDate || r.reportDate, start: res.start || r.start, wrap: res.wrap || r.wrap });
+    emit('render');
+  }
 }
 function rapporter(p, pr) {
   const st = DPR[p.tag] ||= { days: 3 };
@@ -541,7 +569,9 @@ function dprCard(p, pr, r) {
   const k = s => up(s.scene);
   const rep = new Set([...r.filmed, ...r.notFilmed].map(k));
   const rows = [
-    ...r.filmed.map(s => ({ ...s, film: filmOf(s), status: 'FILMAD', note: planned.some(x => k(x) === k(s)) ? '' : 'utanför dagens plan' })),
+    // En scen där någon del står som ej klar visas bara som restad (godkänns inte som filmad).
+    ...r.filmed.filter(s => !r.notFilmed.some(n => up(n.scene) === up(s.scene))).filter((s, i, a) => a.findIndex(x => up(x.scene) === up(s.scene)) === i)
+      .map(s => { const parts = r.filmed.filter(x => up(x.scene) === up(s.scene) && x.part).map(x => x.part); return { ...s, part: parts.join(', '), film: filmOf(s), status: 'FILMAD', note: planned.some(x => k(x) === k(s)) ? '' : 'utanför dagens plan' }; }),
     ...r.notFilmed.map(s => ({ ...s, film: filmOf(s), status: 'RESTAD' })),
   ];
   const missing = [...new Map(planned.filter(x => !rep.has(k(x))).map(x => [k(x), x])).values()];
@@ -562,7 +592,10 @@ function dprCard(p, pr, r) {
       <div class="dpr-act"><a class="btn" href="${esc(r.url)}" target="_blank" rel="noopener">Mejlet ↗</a>${rows.some(s => cur(s) && up(cur(s).dpr) !== s.status) ? '<button class="btn solid" data-dpr-all>Godkänn alla</button>' : ''}</div></header>
     <div class="dpr-meta">${r.start ? `<span>Start <b>${esc(r.start)}</b>${pd?.hours ? ` <small>(plan ${esc(pd.hours.split(/[-–]/)[0])})</small>` : ''}</span>` : ''}${r.wrap ? `<span>Wrap <b>${esc(r.wrap)}</b>${pd?.hours ? ` <small>(plan ${esc((pd.hours.split(/[-–]/)[1] || '').trim())})</small>` : ''}</span>` : ''}
       <span>Planerat <b>${planned.length}</b></span><span>Filmat <b>${r.filmed.length}</b></span><span class="${dev ? 'firetext' : ''}">Avvikelser <b>${dev}</b></span></div>
-    ${rows.length ? `<div class="prod-tablewrap"><table class="prod-table dpr-t"><tbody>${rows.map(sceneRow).join('')}</tbody></table></div>` : '<p class="empty">Inga scennummer hittades i rapporten – öppna mejlet.</p>'}
+    ${rows.length ? `<div class="prod-tablewrap"><table class="prod-table dpr-t"><tbody>${rows.map(sceneRow).join('')}</tbody></table></div>` : r.pdfLoading ? '<div class="prod-loading"><span class="spin"></span>Läser PDF-bilagan…</div>' : `<p class="empty">Inga scennummer hittades i rapporten${r.pdfError ? ' (bilagan kunde inte läsas: ' + esc(r.pdfError) + ')' : ''} – öppna mejlet.</p>`}
+    ${r.openTotal?.length ? `<p class="dpr-miss"><b>Kvar totalt enligt rapporten:</b> ${[...new Map(r.openTotal.map(x => [x.scene + x.part, x])).values()].map(x => esc(x.scene + (x.part ? ' del ' + x.part : '') + (x.note ? ' (' + x.note + ')' : ''))).join(', ')}</p>` : ''}
+    ${r.dropped?.length ? `<p class="dpr-miss"><b>Strukna:</b> ${r.dropped.map(x => esc(x.scene)).join(', ')}</p>` : ''}
+    ${r.fromPdf ? '<p class="hint">Läst ur PDF-bilagan.</p>' : ''}
     ${missing.length ? `<p class="dpr-miss"><b>Planerat men inte nämnt:</b> ${missing.map(x => esc((x.film ? x.film + ' ' : '') + x.scene)).join(', ')}</p>` : ''}
     ${r.notes ? `<p class="dpr-notes">${esc(r.notes)}</p>` : ''}
     ${!rows.length && r.excerpt ? `<details><summary>Utdrag</summary><pre class="dpr-ex">${esc(r.excerpt)}</pre></details>` : ''}

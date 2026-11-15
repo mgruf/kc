@@ -5,7 +5,7 @@
    Kapacitet räknas fram ur kalendern, uppgifterna och inspelningsdagarna. Inställningar i layout '_CAP'. */
 import {
   S, api, emit, refresh, $, esc, toast, ymd, parseYmd, addDays, todayStr, monday, shortDate, dayLabel, DAYS,
-  tasks, events, cfgProjects, visible, cleanTitle, personIn, people, firstName, initials, contactLine,
+  tasks, events, cfgProjects, visible, cleanTitle, isShootDup, personIn, people, firstName, initials, contactLine,
 } from './core.js';
 
 // ---------- delegering ----------
@@ -166,7 +166,7 @@ export function taskHoursOf(t, def = capSettings().taskHours) {
 /** Per dag i [from, to] (ÅÅÅÅ-MM-DD, inklusive): möten, uppgifter, inspelning, totalt, tillgängligt, procent, status. */
 export function capacity(dateFrom, dateTo) {
   const s = capSettings();
-  const evs = events().filter(e => !e.allDay);
+  const evs = events().filter(e => !e.allDay && !isShootDup(e));
   const ts = tasks().filter(x => x.due && !S.done[x.id] && !delegationOf(x));
   const shoot = {};
   cfgProjects().filter(visible).forEach(p => (p.shootDays || []).forEach(d => { shoot[d.date] = (shoot[d.date] || []).concat({ p, d }); }));
@@ -205,7 +205,8 @@ export function capacityBar(day) {
 export function capacityWeekHtml(weekStart = ymd(monday(new Date())), opt = {}) {
   const s = capSettings();
   const from = typeof weekStart === 'string' ? weekStart : ymd(weekStart);
-  const days = capacity(from, ymd(addDays(parseYmd(from), 6)));
+  const toD = opt.rest ? ymd(addDays(monday(parseYmd(from)), 6)) : ymd(addDays(parseYmd(from), 6));
+  const days = capacity(from, toD);
   const work = days.filter(d => d.avail);
   const tot = days.reduce((a, d) => a + d.total, 0), avail = work.reduce((a, d) => a + d.avail, 0);
   const pct = avail ? Math.round(tot / avail * 100) : 0;
@@ -213,12 +214,13 @@ export function capacityWeekHtml(weekStart = ymd(monday(new Date())), opt = {}) 
   const shown = days.filter(d => d.avail || d.total);
   let warn = '';
   if (pct > 110) {
-    const movable = tasks().filter(x => x.due && x.due >= t && x.due >= from && x.due <= ymd(addDays(parseYmd(from), 6)) && !S.done[x.id] && !/^\s*Tid:/im.test(x.notes || ''))
+    const movable = tasks().filter(x => x.due && x.due >= t && x.due >= from && x.due <= toD && !S.done[x.id] && !/^\s*Tid:/im.test(x.notes || ''))
       .sort((a, b) => taskHoursOf(b) - taskHoursOf(a)).slice(0, 4);
     warn = `<div class="cap-warn">Veckan är ${pct} % full – ${h1(tot - avail)} h mer än du har.${movable.length ? ` Det som kan flyttas: ${movable.map(x => `<button class="cap-mv" data-open-task="${esc(x.id)}">${esc(cleanTitle(x.title))}</button>`).join(', ')}.` : ' Se över mötena.'}</div>`;
   }
   return `<div class="cap ${opt.compact ? 'compact' : ''}">
-    <div class="cap-sum"><b class="num ${pct > 100 ? 'firetext' : ''}">${pct} %</b><span>${h1(tot)} av ${h1(avail)} h · möten ${h1(days.reduce((a, d) => a + d.meet, 0))} h · uppgifter ${h1(days.reduce((a, d) => a + d.tasks, 0))} h</span></div>
+    <div class="cap-sum"><b class="num ${pct > 100 ? 'firetext' : ''}">${pct} %</b><span>${opt.compact ? (opt.rest ? 'Resten av veckan · ' : from > todayStr() ? 'Nästa vecka · ' : '') : ''}${h1(tot)} av ${h1(avail)} h</span></div>
+    <div class="cap-parts">${[['möten', days.reduce((a, d) => a + d.meet, 0)], ['uppgifter', days.reduce((a, d) => a + d.tasks, 0)], ['inspelning', days.reduce((a, d) => a + d.shoot, 0)]].filter(([, v]) => v).map(([n, v]) => `<span>${n} ${h1(v)} h</span>`).join('') || '<span>Inget inplanerat</span>'}</div>
     <div class="cap-days">${shown.map(d => `<a class="cap-day ${d.date === t ? 'today' : ''} ${d.date < t ? 'pastd' : ''}" href="#/kalender/dag/${d.date}">
       <span class="cap-d">${DAYS[d.weekday].slice(0, 3)}</span>${capacityBar(d)}<span class="cap-p ${d.status === 'over' || d.status === 'helg' ? 'firetext' : ''}">${d.status === 'helg' ? h1(d.total) + ' h' : d.pct + ' %'}</span></a>`).join('')}</div>
     ${warn}</div>`;
