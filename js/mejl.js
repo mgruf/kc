@@ -69,15 +69,20 @@ export function mailWaitingHtml(opt = {}) {
 }
 
 /** Saker till fireList: mejl som väntat på svar för länge. */
+// Bara mejl som troligen kräver svar: inte vidarebefordrat och inte till många. Alla samlas i EN brand.
+export const needsReply = t => !/^\s*(fwd?|vb|fw)\s*:/i.test(t.subject || '') && String(t.to || '').split(',').length < 3;
 export function mailFireItems() {
-  return waitingThreads().map(t => ({ kind: 'mail', t, ctx: `Inget svar${t.days != null ? ` på ${t.days} dagar` : ''}: ${t.subject} (till ${t.to || t.toEmail})` }));
+  const ts = waitingThreads().filter(needsReply).filter(t => (t.days ?? 0) >= 10);
+  if (!ts.length) return [];
+  return [{ kind: 'mailsum', threads: ts, ctx: `${ts.length} skickade mejl utan svar i över 10 dagar: ${ts.slice(0, 5).map(t => `${t.subject} (till ${t.to || t.toEmail}, ${t.days} d)`).join('; ')}` }];
 }
 
 /** Widget: olästa senaste dygnet + väntar på svar. */
 export async function mailWidget(el) {
   el.classList.add('ml', 'ml-widget');
   const draw = () => {
-    const a = cached('mailToday', {}), b = cached('mailWaiting', { days: 7 });
+    const a = cached('mailToday', {}), b0 = cached('mailWaiting', { days: 7 });
+    const b = b0?.threads ? { ...b0, threads: b0.threads.filter(needsReply) } : b0;
     const n = S.data?.mailWaitingCount;
     el.innerHTML = `<div class="ml-h">Olästa senaste dygnet${a?.threads ? `<span class="n">${a.threads.length}</span>` : ''}</div>${listHtml(a, { max: 5, none: 'Inget oläst.' })}
       <div class="ml-h">Väntar på svar${b?.threads ? `<span class="n">${b.threads.length}</span>` : n ? `<span class="n">${n}</span>` : ''}</div>${listHtml(b, { max: 5, to: true, days: true, none: 'Inga obesvarade mejl.' })}`;
