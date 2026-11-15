@@ -328,7 +328,7 @@ function bind(el) {
     const show = () => {
       capDraft = inp.value;
       const r = parse(inp.value);
-      prev.innerHTML = inp.value.trim() ? `<span>${esc(r.title || '…')}</span>${r.date ? `<span class="pv">${esc(dayLabel(r.date))}${r.time ? ' ' + r.time : ''}</span>` : ''}${(r.tags || []).map(g => `<span class="pv tagpv" style="--tc:${tagColor(g)}">${esc(g.slice(1))}</span>`).join('')}${r.recur ? `<span class="pv">↻ ${esc(r.recur)}</span>` : ''}` : '';
+      prev.innerHTML = inp.value.trim() ? `<span>${esc(String(r.title || '…').replace(/#[0-9A-Za-zÅÄÖåäö_-]+/g, '').trim() || '…')}</span>${r.date ? `<span class="pv">${esc(dayLabel(r.date))}${r.time ? ' ' + r.time : ''}</span>` : ''}${(r.tags || []).map(g => `<span class="pv tagpv" style="--tc:${tagColor(g)}">${esc(g.slice(1))}</span>`).join('')}${r.recur ? `<span class="pv">↻ ${esc(r.recur)}</span>` : ''}` : '';
     };
     inp.addEventListener('input', show); inp.addEventListener('focus', () => capFocus = true); inp.addEventListener('blur', () => capFocus = false);
     show();
@@ -336,7 +336,8 @@ function bind(el) {
       e.preventDefault();
       const raw = inp.value.trim(); if (!raw) return;
       const r = parse(raw);
-      const title = [r.title || raw, ...(r.tags || [])].join(' ');
+      const base = String(r.title || raw).replace(/#[0-9A-Za-zÅÄÖåäö_-]+/g, '').replace(/\s{2,}/g, ' ').trim();
+      const title = [base + (r.time ? ' kl ' + r.time : ''), ...(r.tags || [])].join(' ');
       const notes = r.recur ? `Upprepa: ${r.recur}` : '';
       capDraft = ''; inp.value = ''; prev.innerHTML = '';
       const inbox = (S.data.taskLists || []).find(l => /INBOX/i.test(l.title) && l._src === 'jobb');

@@ -15,6 +15,7 @@ const COMMANDS = [
   ['Nytt projekt från mall', () => import('./views/mall.js').then(m => m.openNewProject())],
   ['Veckostart / veckoavslut', () => go('vecka')],
   ['Mallar', () => go('mall')],
+  ['Produktionsplan', () => go('plan')],
   ['Gå till Idag', () => go('idag')], ['Gå till Kalender – vecka', () => go('kalender/vecka')], ['Gå till Kalender – dag', () => go('kalender/dag')], ['Gå till Kalender – månad', () => go('kalender/manad')],
   ['Gå till Uppgifter', () => go('uppgifter')], ['Gå till Anteckningar', () => go('anteckningar')], ['Gå till Personer', () => go('personer')], ['Gå till Horisont', () => go('horisont')], ['Gå till Projekt', () => go('projekt')],
   ['Byt till jobbläge', () => { S.mode = 'jobb'; store.set('mode', 'jobb'); emit('render'); }],
@@ -23,8 +24,14 @@ const COMMANDS = [
   ['Koppla källor (jobb/privat)', () => openSetup()],
 ];
 
+const PAGES = [['Idag', 'idag'], ['Kalender', 'kalender/vecka'], ['Uppgifter', 'uppgifter'], ['Anteckningar', 'anteckningar'], ['Personer', 'personer'], ['Horisont', 'horisont'],
+  ['Produktionsplan', 'plan'], ['Veckan – veckostart och veckoavslut', 'vecka'], ['Mallar', 'mall'], ['Alla projekt', 'projekt']];
 function index() {
-  const out = [];
+  const out = PAGES.map(([t, h]) => ({ k: 'Sida', t, s: '', body: '', go: () => go(h), w: 12 }));
+  projects().filter(p => p.cfg).forEach(p => {
+    if (p.cfg.planSheetUrl || (p.cfg.phases || []).length) out.push({ k: 'Plan', t: 'Produktionsplan · ' + p.name, s: p.tag, body: p.tag + ' plan gantt', go: () => go('projekt/' + encodeURIComponent(p.tag) + '/plan'), w: 7 });
+    if (p.cfg.hasProduction) out.push({ k: 'Produktion', t: 'Produktion · ' + p.name, s: p.tag, body: p.tag + ' callsheet dagar scener', go: () => go('projekt/' + encodeURIComponent(p.tag) + '/produktion'), w: 7 });
+  });
   projects().filter(p => p.cfg || p.tasks.length).forEach(p => out.push({ k: 'Projekt', t: p.name, s: p.tag, body: p.tag, go: () => go('projekt/' + encodeURIComponent(p.tag)), w: 6 }));
   tasks().forEach(t => out.push({ k: 'Uppgift', t: cleanTitle(t.title), s: (t.due ? dayLabel(t.due) + ' · ' : '') + t.list, body: t.notes + ' ' + (t.tags || []).join(' '), go: () => openTask(t.id), w: 4 }));
   [...(S.data?.events || []), ...S.extraEvents].forEach(e => out.push({ k: 'Händelse', t: e.title, s: (e.allDay ? shortDate(e.start) : dayLabel(e.start.slice(0, 10)) + ' ' + hhmm(e.start)) + ' · ' + e.cal, body: (e.location || '') + ' ' + (e.description || ''), go: () => openEvent(e.id, e.start), w: 3 }));

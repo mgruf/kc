@@ -596,7 +596,7 @@ async function submitQuick(e) {
   e.preventDefault();
   const r = quickParse();
   const tags = (r.tags || []).map(t => t.startsWith('#') ? t.toUpperCase() : '#' + t.toUpperCase());
-  const title = [r.title || $('#tqText').value.trim(), ...tags].join(' ').trim();
+  const title = [String(r.title || $('#tqText').value.trim()).replace(/#[0-9A-Za-zÅÄÖåäö_-]+/g, '').replace(/\s{2,}/g, ' ').trim(), ...tags].join(' ').trim();
   if (!title) return;
   const recur = r.recur ? normRule(r.recur) : null;
   const person = (r.people || [])[0];
