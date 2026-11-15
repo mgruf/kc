@@ -1,7 +1,7 @@
 /* KC – läser dagrapporter (DPR) som kommer som PDF-bilaga. Scriptans blankett har kolumner:
    "Scenes today", "Uncomplete scenes today", "Uncompleted scenes Total", "Dropped scenes", och under ACTORS
    en tabell med Scene/Slate/TC/Take. Texten läses med pdf.js och placeras i kolumn efter x-läge.
-   Ungefärligt: Mathias godkänner allt innan något skrivs i scenarket. */
+   Ungefärligt: allt godkänns för hand innan något skrivs i scenarket. */
 let pdfjs = null;
 async function lib() {
   if (pdfjs) return pdfjs;
