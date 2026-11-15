@@ -4,6 +4,11 @@
 import { S, api, esc, ymd, hhmm, dayLabel, shortDate, relTime } from './core.js';
 
 const CACHE = {};            // nyckel → { t, threads, error, loading }
+// Senaste svaren sparas i webbläsaren så mejlen syns direkt; färska hämtas i bakgrunden.
+const LS = 'kc_mailcache';
+try { Object.assign(CACHE, Object.fromEntries(Object.entries(JSON.parse(localStorage.getItem(LS) || '{}')).map(([k, v]) => [k, { t: 0, threads: v }]))); } catch {}
+let lsT = null;
+const persist = () => { clearTimeout(lsT); lsT = setTimeout(() => { try { const o = {}; Object.entries(CACHE).filter(([, v]) => v.threads && !v.error).slice(-30).forEach(([k, v]) => o[k] = v.threads.slice(0, 25)); localStorage.setItem(LS, JSON.stringify(o)); } catch {} }, 500); };
 const TTL = 10 * 60e3;
 
 const keyOf = o => JSON.stringify(o);
@@ -28,8 +33,8 @@ async function load(action, params, force) {
   const c = CACHE[k];
   if (c && !force && (c.loading || Date.now() - c.t < TTL)) return c.loading || c;
   const entry = CACHE[k] = c || { t: 0, threads: null };
-  entry.loading = api(action, params).then(r => { entry.threads = r.threads || []; entry.error = null; entry.t = Date.now(); return entry; })
-    .catch(e => { entry.error = e.message; entry.t = Date.now(); return entry; })
+  entry.loading = api(action, params).then(r => { entry.threads = r.threads || []; entry.error = null; entry.t = Date.now(); persist(); return entry; })
+    .catch(e => { if (!entry.threads) entry.error = e.message; entry.t = Date.now(); return entry; })
     .finally(() => { entry.loading = null; });
   return entry.loading;
 }
