@@ -1,0 +1,34 @@
+/* KC – Produktionsplanen i KC: värdvyn (#/plan) och den lilla tidslinjen (planTimelineHtml).
+   Själva planeringsytan har egen stil i css/plan-app.css (laddas bara av plan.html). */
+.v-plan .v-plan-host { display: grid; gap: 12px; }
+.v-plan .v-plan-link { font-size: 13px; color: var(--ink-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.v-plan .v-plan-link:hover { color: var(--ink); border-color: var(--line-2); }
+.v-plan .v-plan-tabs { display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: -4px 0 0; }
+.v-plan .v-plan-tabs::-webkit-scrollbar { display: none; }
+.v-plan .v-plan-tabs a { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-size: 13.5px; color: var(--ink-2); padding: 6px 11px; border-radius: 999px; }
+.v-plan .v-plan-tabs a:hover { background: var(--sel); color: var(--ink); }
+.v-plan .v-plan-tabs a.on { background: var(--ink); color: var(--bg); }
+.v-plan .v-plan-tabs i { width: 8px; height: 8px; border-radius: 50%; background: var(--tc); }
+.v-plan .v-plan-frame { width: 100%; height: calc(100dvh - 190px); min-height: 520px; border: 0; background: transparent; display: block; }
+@media (max-width: 760px) {
+  .v-plan .v-plan-frame { height: calc(100dvh - var(--tabh, 60px) - 170px); min-height: 420px; }
+}
+
+/* ---------- liten tidslinje ---------- */
+.v-plan-tl { display: grid; gap: 6px; font-size: 12px; color: var(--ink-2); text-decoration: none; }
+.v-plan-tl.empty { color: var(--ink-3); font-size: 13px; }
+.v-plan-tl.empty p { margin: 0 0 4px; }
+.v-plan-tl.empty a { color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; }
+.v-plan-tl-h, .v-plan-tl-r { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; align-items: center; }
+.v-plan-tl .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.v-plan-tl .l { position: relative; height: 18px; }
+.v-plan-tl-h .l { height: 16px; border-bottom: 1px solid var(--line); }
+.v-plan-tl-w { position: absolute; top: 0; font-size: 10.5px; color: var(--ink-3); padding-left: 3px; border-left: 1px solid var(--line); height: 16px; white-space: nowrap; }
+.v-plan-tl-w.m { color: var(--ink-2); }
+.v-plan-tl .t { position: absolute; top: -3px; bottom: -3px; border-left: 1.5px solid var(--fire); z-index: 2; }
+.v-plan-tl .b { position: absolute; top: 3px; height: 12px; border-radius: 3px; background: color-mix(in srgb, var(--tc, var(--ink)) 70%, transparent); overflow: hidden; }
+.v-plan-tl .b.bg { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--tc, var(--ink)) 26%, transparent) 0 5px, color-mix(in srgb, var(--tc, var(--ink)) 12%, transparent) 5px 10px); }
+.v-plan-tl .b span { display: block; padding: 0 5px; font-size: 10px; line-height: 12px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: normal; }
+.v-plan-tl .b.bg span { color: var(--ink-2); }
+.v-plan-tl .d { position: absolute; top: 4px; width: 9px; height: 9px; transform: translateX(-4.5px) rotate(45deg); background: var(--ink); border: 1.5px solid var(--surface); z-index: 3; }
+.v-plan-tl:hover .n { color: var(--ink); }

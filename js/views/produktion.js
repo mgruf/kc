@@ -2,12 +2,14 @@
    All data kommer från scenarket och projektmappen via Apps Script (action 'production'). */
 import {
   S, $, esc, ymd, parseYmd, addDays, todayStr, shortDate, dayLabel, week, relTime, DAYS, MONTHS,
-  loadProduction, emit, personIn,
+  loadProduction, emit, personIn, api, toast, events, projects, hhmm,
 } from '../core.js';
+import { callsheetHtml, bindCallsheet } from './callsheet.js';
+import { rekHtml, bindRek } from './rek.js';
 import { loadLatestScripts, eighthsStr } from './manus.js';
 import { teamFor } from './team.js';
 
-const SUBS = [['oversikt', 'Översikt'], ['dagar', 'Dagar'], ['scener', 'Scener'], ['roller', 'Roller'], ['platser', 'Platser'], ['callsheets', 'Callsheets'], ['dokument', 'Dokument']];
+const SUBS = [['oversikt', 'Översikt'], ['dagar', 'Dagar'], ['scener', 'Scener'], ['roller', 'Roller'], ['platser', 'Platser'], ['rek', 'Rek'], ['callsheet', 'Callsheet'], ['rapporter', 'Rapporter'], ['callsheets', 'Callsheets'], ['dokument', 'Dokument']];
 const base = p => '#/projekt/' + encodeURIComponent(p.tag) + '/produktion';
 const mapUrl = (place, addr) => 'https://maps.google.com/?q=' + encodeURIComponent(addr || place);
 const STATE = { film: '', status: '', place: '', q: '', sort: 'scene', dir: 1, scene: null };
@@ -57,11 +59,13 @@ export function renderProduction(el, p, sub, args = []) {
       if (pr.manus === undefined && !pr.manusLoading) { pr.manusLoading = true; loadLatestScripts(p.tag, p.cfg?._src).then(m => { pr.manus = m; pr.manusLoading = false; emit('render'); }).catch(() => { pr.manus = []; pr.manusLoading = false; }); }
       if (pr.manus?.length) v = manusView(pr);
     }
-    const f = { oversikt, dagar, scener, roller, platser, callsheets, dokument }[sub];
+    const f = { oversikt, dagar, scener, roller, platser, rek: rekHtml, callsheet: callsheetHtml, rapporter, callsheets, dokument }[sub];
     body = (v !== pr && sub !== 'oversikt' ? `<p class="hint prod-manus-note">Ur inlästa manus (${pr.manus.map(m => esc((m.film || 'Manus') + ' ' + m.version)).join(', ')}). <a href="#/projekt/${encodeURIComponent(p.tag)}/manus">Manusfliken</a></p>` : '') + f(p, v, args);
   }
-  el.innerHTML = `<div class="prod">${tabs}<div class="prod-body">${body}</div></div>`;
+  el.innerHTML = `<div class="prod prod-${sub}" data-ptag="${esc(p.tag)}">${tabs}<div class="prod-body">${body}</div></div>`;
   bindOnce();
+  bindCallsheet(tag => projects().find(x => x.tag === tag));
+  bindRek();
 }
 
 // ---------- översikt ----------
@@ -108,6 +112,13 @@ function oversikt(p, pr) {
     html += `<section class="sec fire prod-sec"><h2><span class="h">Det som brinner</span><span class="n">${restad.length}</span></h2><div class="body">
       ${noDate.length ? `<p class="prod-firenote">${noDate.length === 1 ? '1 restad scen saknar' : noDate.length + ' restade scener saknar'} nytt datum.</p>` : ''}
       ${restad.slice().sort((a, b) => (a.newDate ? 1 : 0) - (b.newDate ? 1 : 0)).map(s => sceneLine(p, s)).join('')}
+    </div></section>`;
+  }
+
+  const kr = conflictsFor(p.tag);
+  if (kr.length) {
+    html += `<section class="sec prod-sec prod-krock"><h2><span class="h">Krockar</span><span class="n">${kr.length}</span></h2><div class="body">
+      ${kr.map(k => `<div class="prod-kr"><span class="warn" aria-hidden="true">⚠</span><span class="kr-t"><b>${esc(k.who)}</b><small>${esc(k.text)}</small></span>${k.href ? `<a class="kr-a" href="${esc(k.href)}">${esc(k.linkText || 'Visa')}</a>` : ''}</div>`).join('')}
     </div></section>`;
   }
 
@@ -199,7 +210,7 @@ function dagDetalj(p, pr, date) {
         <div><div class="prod-k">${d ? 'Dag ' + d.day + ' av ' + pr.days.length : 'Inspelning'}${date === t ? ' · idag' : date < t ? ' · passerad' : ''}</div>
           <h2>${esc(fullDate(date))}</h2>
           <div class="sub">${esc(d?.hours || '')}${'<i class="sep">·</i>'}${pagesStr(pages)} sidor${est ? '<i class="sep">·</i>' + hm(est) + ' est.' : ''}<i class="sep">·</i>${strips.length} stripar</div></div>
-        <div class="prod-dnav">${prev ? `<a class="btn" href="${base(p)}/dagar/${prev.date}">‹ Dag ${prev.day}</a>` : ''}${next ? `<a class="btn" href="${base(p)}/dagar/${next.date}">Dag ${next.day} ›</a>` : ''}${cs ? `<a class="btn solid" href="${esc(cs.url)}" target="_blank" rel="noopener">Callsheet</a>` : ''}</div>
+        <div class="prod-dnav">${prev ? `<a class="btn" href="${base(p)}/dagar/${prev.date}">‹ Dag ${prev.day}</a>` : ''}${next ? `<a class="btn" href="${base(p)}/dagar/${next.date}">Dag ${next.day} ›</a>` : ''}<a class="btn" href="${base(p)}/callsheet/${date}">Callsheet-utkast</a>${cs ? `<a class="btn solid" href="${esc(cs.url)}" target="_blank" rel="noopener">Callsheet</a>` : ''}</div>
       </div>
       ${d?.info ? `<p class="prod-info">${esc(d.info)}</p>` : ''}
     </div>
@@ -433,7 +444,157 @@ function manusView(pr) {
 /** Skådespelare: scenarkets namn, annars Team-raden med Typ=Skådespelare och Roll = rollnamnet; annars knapp Tillsätt. */
 function actorCell(p, r) {
   const t = teamFor(p.tag).find(x => /skådespel/i.test(x['Typ'] || '') && String(x['Roll'] || '').trim().toUpperCase() === String(r.name || '').trim().toUpperCase());
-  if (t) { const pp = personIn(t['Person']) || { name: t['Person'], email: '' }; return `<a href="#/person/${encodeURIComponent(String(pp.email || pp.name).toLowerCase())}">${esc(pp.name)}</a>`; }
+  if (t) { const pp = personIn(t['Person']) || { name: t['Person'], email: '' }; return `<a href="#/person/${encodeURIComponent(String(pp.email || pp.name).toLowerCase())}">${esc(pp.name)}</a>${conflictBadge(p.tag, pp.email || pp.name)}`; }
   if (r.actor) return esc(r.actor);
   return `<button class="btn prod-cast" data-team-add='${esc(JSON.stringify({ tag: p.tag, typ: 'Skådespelare', roll: cap(r.name || r.code || '') }))}'>Tillsätt</button>`;
 }
+
+// ---------- krockar: tillgänglighet ur befintlig data (Team, andra projekt, kalendern) ----------
+const tagsOf = v => String(v || '').split(/[\s,]+/).filter(Boolean).map(t => up(t.startsWith('#') ? t : '#' + t));
+const teamRows = () => ((S.data?.collections || []).find(c => c.name === 'Team')?.rows || []).filter(r => !/avböjd|avslutad/i.test(r['Status'] || ''));
+const pOf = r => { const pp = personIn(r['Person']) || { name: String(r['Person'] || '').trim(), email: '' }; return { key: String(pp.email || pp.name).toLowerCase(), name: pp.name }; };
+const overlap = (a0, a1, b0, b1) => a0 && a1 && b0 && b1 && a0 <= b1 && b0 <= a1;
+const span = ds => { const s = [...new Set(ds)].sort(); return s.length > 3 ? `${shortDate(s[0])}–${shortDate(s[s.length - 1])} (${s.length} dagar)` : s.map(shortDate).join(', '); };
+/** Datum då en skådespelare (Team-rad) spelar i ett projekt, via rollnamn eller rollkod. */
+function actorDates(tag, row) {
+  const pr = S.prod[tag]; if (!pr || pr.error) return [];
+  const roll = up(String(row['Roll'] || '').trim()); if (!roll) return [];
+  const codes = (pr.roles || []).filter(r => up(r.name).trim() === roll || up(r.code) === roll).map(r => up(r.code)).filter(Boolean);
+  if (!codes.length) return [];
+  return [...new Set((pr.strips || []).filter(s => (s.cast || []).some(c => codes.includes(up(c)))).map(s => s.date))];
+}
+let KR = { at: 0, map: {} };
+const KR_LOAD = new Set();
+/** Alla krockar för ett projekt: [{ key, who, kind, text, href, linkText }]. Varnar bara – ändrar inget. */
+export function conflictsFor(tag) {
+  tag = up(tag);
+  if (Date.now() - KR.at > 800) KR = { at: Date.now(), map: {} };
+  if (KR.map[tag]) return KR.map[tag];
+  const all = teamRows(), out = [];
+  const mine = all.filter(r => tagsOf(r['Projekt']).includes(tag));
+  const evs = events();
+  mine.forEach(r => {
+    const me = pOf(r); if (!me.key) return;
+    const others = all.filter(x => x !== r && pOf(x).key === me.key && !tagsOf(x['Projekt']).includes(tag));
+    // 1. samma person i två projekt med överlappande period
+    others.forEach(x => {
+      if (overlap(r['Från'], r['Till'], x['Från'], x['Till'])) {
+        const o0 = r['Från'] > x['Från'] ? r['Från'] : x['Från'], o1 = r['Till'] < x['Till'] ? r['Till'] : x['Till'];
+        const ot = tagsOf(x['Projekt'])[0] || '';
+        out.push({ key: me.key, who: me.name, kind: 'period', text: `Även i ${ot.slice(1)}${x['Roll'] ? ' som ' + x['Roll'] : ''} – perioderna överlappar ${shortDate(o0)}–${shortDate(o1)}`, href: '#/projekt/' + encodeURIComponent(ot) + '/team', linkText: 'Öppna' });
+      }
+    });
+    if (!/skådespel/i.test(r['Typ'] || '')) return;
+    const dates = actorDates(tag, r); if (!dates.length) return;
+    others.forEach(x => tagsOf(x['Projekt']).forEach(ot => { if (!S.prod[ot] && !KR_LOAD.has(ot) && (S.data?.projects || []).some(c => c.tag === ot && c.hasProduction)) { KR_LOAD.add(ot); loadProduction(ot); } }));
+    // 2. inspelningsdagar i andra projekt (skådespelare där också), eller annat projekts period utan egna datum här
+    others.forEach(x => {
+      const ot = tagsOf(x['Projekt'])[0] || '';
+      let hit = /skådespel/i.test(x['Typ'] || '') ? actorDates(ot, x).filter(d => dates.includes(d)) : [];
+      if (!hit.length && !(r['Från'] && r['Till']) && x['Från'] && x['Till']) hit = dates.filter(d => d >= x['Från'] && d <= x['Till']);
+      if (hit.length) out.push({ key: me.key, who: me.name, kind: 'inspelning', text: `Spelar här ${span(hit)} – samma dagar bokad i ${ot.slice(1)}`, href: '#/projekt/' + encodeURIComponent(ot) + '/produktion/roller', linkText: 'Öppna' });
+    });
+    // 3. kalenderhändelser med personens namn på inspelningsdagar (inte projektets egna)
+    const nm = String(me.name || '').trim();
+    if (nm.includes(' ') && nm.length > 4) {
+      const re = new RegExp('\\b' + nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+      const hit = evs.filter(e => re.test(e.title || '') && !(e.tags || []).map(up).includes(tag)).map(e => ({ e, d: e.allDay ? e.start : ymd(new Date(e.start)) })).filter(x => dates.includes(x.d));
+      if (hit.length) out.push({ key: me.key, who: me.name, kind: 'kalender', text: `Kalendern på inspelningsdag: ${hit.slice(0, 3).map(x => `${shortDate(x.d)} ${x.e.allDay ? '' : hhmm(x.e.start) + ' '}${x.e.title}`).join(' · ')}${hit.length > 3 ? ` (+${hit.length - 3})` : ''}`, href: '#/kalender/dag/' + hit[0].d, linkText: 'Kalendern' });
+    }
+  });
+  return (KR.map[tag] = out);
+}
+/** ⚠ med förklaring för en person (e-post eller namn) i projektet – tom sträng om inget krockar. */
+export function conflictBadge(tag, key) {
+  const k = conflictsFor(tag).filter(x => x.key === String(key || '').toLowerCase());
+  return k.length ? ` <span class="prod-warn" title="${esc(k.map(x => x.text).join('\n'))}">⚠</span>` : '';
+}
+
+// ---------- rapporter: dagrapporter (DPR) ur Gmail mot planen ----------
+const DPR = {};
+function loadDpr(p, st) {
+  st.loading = true; st.error = '';
+  api('dprMails', { tag: p.tag, days: st.days }, false, p.cfg?._src || 'jobb')
+    .then(r => { st.reports = r.reports || []; st.query = r.query || ''; })
+    .catch(e => { st.error = e.message; })
+    .finally(() => { st.loading = false; st.loaded = true; emit('render'); });
+}
+function rapporter(p, pr) {
+  const st = DPR[p.tag] ||= { days: 3 };
+  if (!st.loaded && !st.loading) loadDpr(p, st);
+  const bar = `<div class="prod-docbar dpr-bar"><span class="muted">Dagrapporter ur mejlen, senaste</span>
+    <select data-dpr-days>${[3, 7, 14, 30].map(n => `<option value="${n}" ${n === st.days ? 'selected' : ''}>${n} dagarna</option>`).join('')}</select>
+    <button class="btn" data-dpr-reload>Hämta igen</button>${st.query ? `<span class="muted dpr-q" title="Ändra med fältet DPR-sökning på projektets rad i samlingen Projekt">Sökning: ${esc(st.query)}</span>` : ''}</div>`;
+  if (st.loading && !st.reports) return bar + '<div class="prod-loading"><span class="spin"></span>Letar dagrapporter i mejlen…</div>';
+  if (st.error) return bar + `<div class="prod-err"><b>Kunde inte läsa mejlen.</b><br>${esc(st.error)}</div>`;
+  const reps = st.reports || [];
+  if (!reps.length) return bar + '<p class="empty">Inga dagrapporter hittades. Justera sökningen med fältet DPR-sökning på projektets rad i samlingen Projekt.</p>';
+  return bar + `<p class="hint">Ingenting skrivs i scenarket förrän du godkänner. Godkänt hamnar bara i kolumnerna Status bekräftad (DPR), Restorsak och Nytt datum.</p>` + reps.map(r => dprCard(p, pr, r)).join('');
+}
+function dprCard(p, pr, r) {
+  const days = pr.days || [];
+  const pd = (r.reportDate && days.find(d => d.date === r.reportDate)) || (r.day && days.find(d => d.day == r.day)) || null;
+  const date = pd?.date || r.reportDate || '';
+  const planned = pd ? (pr.strips || []).filter(s => s.date === pd.date) : [];
+  const sc = (pr.scenes || []);
+  const filmOf = s => s.film || planned.find(x => up(x.scene) === up(s.scene))?.film || (sc.filter(x => up(x.scene) === up(s.scene)).length === 1 ? sc.find(x => up(x.scene) === up(s.scene)).film : '');
+  const k = s => up(s.scene);
+  const rep = new Set([...r.filmed, ...r.notFilmed].map(k));
+  const rows = [
+    ...r.filmed.map(s => ({ ...s, film: filmOf(s), status: 'FILMAD', note: planned.some(x => k(x) === k(s)) ? '' : 'utanför dagens plan' })),
+    ...r.notFilmed.map(s => ({ ...s, film: filmOf(s), status: 'RESTAD' })),
+  ];
+  const missing = [...new Map(planned.filter(x => !rep.has(k(x))).map(x => [k(x), x])).values()];
+  const cur = s => sc.find(x => up(x.scene) === up(s.scene) && (!s.film || up(x.film) === up(s.film)));
+  const dev = rows.filter(x => x.status === 'RESTAD' || x.note).length + missing.length;
+  const sceneRow = s => {
+    const c = cur(s), done = c && up(c.dpr) === s.status;
+    const payload = esc(JSON.stringify({ film: s.film, scene: s.scene, status: s.status }));
+    return `<tr class="${s.status === 'RESTAD' ? 'dpr-rest' : ''}" data-dpr-row='${payload}'>
+      <td class="tnum"><b>${esc(s.scene)}</b>${s.part ? ` <small>del ${esc(s.part)}</small>` : ''}<small>${esc(s.film || '–')}</small></td>
+      <td>${statusTag(s.status)}${s.note ? `<small class="dpr-note">${esc(s.note)}</small>` : ''}</td>
+      <td>${s.status === 'RESTAD' ? `<input data-dpr-reason value="${esc(s.reason || '')}" placeholder="Orsak"><input type="date" data-dpr-date value="${esc(c?.newDate || '')}" title="Nytt datum">` : `<span class="muted">${esc(c ? (c.status || '').toLowerCase() : 'finns inte i scenarket')}</span>`}</td>
+      <td class="r">${done ? '<span class="dpr-ok">✓ bekräftad</span>' : c ? '<button class="btn" data-dpr-ok>Godkänn</button>' : ''}</td></tr>`;
+  };
+  return `<article class="card dpr-card">
+    <header class="dpr-h"><div><div class="prod-k">${pd ? 'Dag ' + pd.day : r.day ? 'Dag ' + esc(r.day) : 'Rapport'}${date ? ' · ' + esc(fullDate(date)) : ''}</div>
+      <b>${esc(r.subject || '(utan ämne)')}</b><small>${esc((personIn(r.from) || { name: r.from }).name)} · ${esc(relTime(r.date))}${r.attachments?.length ? ' · ' + r.attachments.length + ' bilagor' : ''}</small></div>
+      <div class="dpr-act"><a class="btn" href="${esc(r.url)}" target="_blank" rel="noopener">Mejlet ↗</a>${rows.some(s => cur(s) && up(cur(s).dpr) !== s.status) ? '<button class="btn solid" data-dpr-all>Godkänn alla</button>' : ''}</div></header>
+    <div class="dpr-meta">${r.start ? `<span>Start <b>${esc(r.start)}</b>${pd?.hours ? ` <small>(plan ${esc(pd.hours.split(/[-–]/)[0])})</small>` : ''}</span>` : ''}${r.wrap ? `<span>Wrap <b>${esc(r.wrap)}</b>${pd?.hours ? ` <small>(plan ${esc((pd.hours.split(/[-–]/)[1] || '').trim())})</small>` : ''}</span>` : ''}
+      <span>Planerat <b>${planned.length}</b></span><span>Filmat <b>${r.filmed.length}</b></span><span class="${dev ? 'firetext' : ''}">Avvikelser <b>${dev}</b></span></div>
+    ${rows.length ? `<div class="prod-tablewrap"><table class="prod-table dpr-t"><tbody>${rows.map(sceneRow).join('')}</tbody></table></div>` : '<p class="empty">Inga scennummer hittades i rapporten – öppna mejlet.</p>'}
+    ${missing.length ? `<p class="dpr-miss"><b>Planerat men inte nämnt:</b> ${missing.map(x => esc((x.film ? x.film + ' ' : '') + x.scene)).join(', ')}</p>` : ''}
+    ${r.notes ? `<p class="dpr-notes">${esc(r.notes)}</p>` : ''}
+    ${!rows.length && r.excerpt ? `<details><summary>Utdrag</summary><pre class="dpr-ex">${esc(r.excerpt)}</pre></details>` : ''}
+  </article>`;
+}
+async function approveDpr(tag, trs) {
+  const scenes = trs.map(tr => { const s = JSON.parse(tr.dataset.dprRow); if (s.status === 'RESTAD') { s.reason = tr.querySelector('[data-dpr-reason]')?.value || ''; s.newDate = tr.querySelector('[data-dpr-date]')?.value || ''; } return s; });
+  if (!scenes.length) return;
+  const p = projects().find(x => x.tag === tag);
+  trs.forEach(tr => tr.querySelectorAll('button').forEach(b => b.disabled = true));
+  try {
+    const r = await api('setSceneStatus', { tag, scenes }, true, p?.cfg?._src || 'jobb');
+    const pr = S.prod[tag];
+    scenes.forEach(s => { const c = (pr?.scenes || []).find(x => up(x.scene) === up(s.scene) && (!s.film || up(x.film) === up(s.film))); if (c && !(r.missing || []).some(m => m.includes(s.scene))) { c.dpr = s.status; if (s.status === 'RESTAD') { c.reason = s.reason; c.newDate = s.newDate; } } });
+    toast(`${(r.updated || []).length === 1 ? '1 scen bekräftad' : (r.updated || []).length + ' scener bekräftade'}${(r.missing || []).length ? ' · hittade inte ' + r.missing.join(', ') : ''}`);
+  } catch (e) { toast('Kunde inte skriva i scenarket – ' + e.message); }
+  emit('render');
+}
+let dprBound = false;
+(function bindDpr() {
+  if (dprBound || typeof document === 'undefined') return; dprBound = true;
+  document.addEventListener('click', e => {
+    const tag = e.target.closest('.prod[data-ptag]')?.dataset.ptag; if (!tag) return;
+    if (e.target.closest('[data-dpr-reload]')) { const st = DPR[tag]; if (st) { st.loaded = false; st.reports = null; } emit('render'); return; }
+    const one = e.target.closest('[data-dpr-ok]');
+    if (one) { approveDpr(tag, [one.closest('[data-dpr-row]')]); return; }
+    const all = e.target.closest('[data-dpr-all]');
+    if (all) { const card = all.closest('.dpr-card'); approveDpr(tag, [...card.querySelectorAll('[data-dpr-row]')].filter(tr => tr.querySelector('[data-dpr-ok]'))); }
+  });
+  document.addEventListener('change', e => {
+    const sel = e.target.closest('.prod [data-dpr-days]'); if (!sel) return;
+    const tag = sel.closest('.prod[data-ptag]').dataset.ptag;
+    DPR[tag] = { days: Number(sel.value) }; emit('render');
+  });
+})();

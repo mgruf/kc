@@ -158,3 +158,14 @@
   .tm-row select, .tm-row input, .tm-row .btn { flex-basis: 100%; }
 }
 .tm-row .btn { justify-content: center; }
+
+/* ---------- avtal i teamet ---------- */
+.tm-av { display: flex; align-items: center; gap: 6px; flex: none; }
+.tm-avs { font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); max-width: 130px; }
+.tm-avs-signerat, .tm-avs-fakturerat { color: var(--ink); border-color: var(--line-2); }
+.tm-avs-ej-påbörjat { color: var(--ink-3); }
+.tm-av.fire .tm-avs { color: var(--fire); border-color: color-mix(in srgb, var(--fire) 45%, transparent); }
+.tm-ph .title { color: var(--ink-3); font-style: italic; }
+.tm-noavtal.on { background: var(--fire); border-color: var(--fire); color: #fff; }
+.tm-tpl { display: grid; gap: 4px; }
+@media (max-width: 720px) { .tm-r { flex-wrap: wrap; } .tm-av { order: 3; margin-left: 46px; } .tm-ra { order: 4; } }

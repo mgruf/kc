@@ -8,8 +8,9 @@ import { renderProduction, productionSummary } from './produktion.js';
 import { renderCollectionView } from './samling.js';
 import { renderScript } from './manus.js';
 import { renderTeam, teamFor, openTeamAdd } from './team.js';
+import { planTimelineHtml } from './plan.js';
 
-const TABS = [['oversikt', 'Översikt'], ['produktion', 'Produktion'], ['manus', 'Manus'], ['team', 'Team'], ['uppgifter', 'Uppgifter'], ['kalender', 'Kalender'], ['anteckningar', 'Anteckningar'], ['filer', 'Filer'], ['samlingar', 'Samlingar']];
+const TABS = [['oversikt', 'Översikt'], ['produktion', 'Produktion'], ['manus', 'Manus'], ['plan', 'Plan'], ['team', 'Team'], ['uppgifter', 'Uppgifter'], ['kalender', 'Kalender'], ['anteckningar', 'Anteckningar'], ['mejl', 'Mejl'], ['filer', 'Filer'], ['samlingar', 'Samlingar']];
 let editing = false;
 
 export function render(el, args) {
@@ -73,6 +74,7 @@ function page(el, p, tab, rest) {
   switch (tab) {
     case 'produktion': return renderProduction(box, p, rest[0] || 'oversikt', rest.slice(1));
     case 'manus': return renderScript(box, p, rest);
+    case 'plan': location.hash = '#/plan/' + encodeURIComponent(p.tag); return;
     case 'team': return renderTeam(box, p, rest);
     case 'uppgifter': {
       const open = p.tasks.slice().sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
@@ -97,6 +99,7 @@ function page(el, p, tab, rest) {
       return;
     }
     case 'personer': return personsTab(box, p);
+    case 'mejl': box.innerHTML = `<div style="padding-top:12px" data-mailbox='${esc(JSON.stringify({ tag: p.tag }))}'><p class="empty">Hämtar mejl…</p></div>`; return;
     case 'filer': return filesTab(box, p);
     case 'samlingar': {
       const colls = (S.data?.collections || []).filter(cl => cl.name !== 'Projekt' && cl.fields.some(f => f.type === 'projekt'));
@@ -245,7 +248,7 @@ function widget(id, p) {
       return (ks.length ? ks.map(k => `<div class="kv"><span>${esc(k)}</span><b>${by[k]}</b></div>`).join('') : empty('Ingen kopplad än.'))
         + `<div class="vact" style="margin-top:10px"><button class="btn" data-team-add='${esc(JSON.stringify({ tag: p.tag }))}'>+ Person</button><a class="more-link" style="margin:0" href="#/projekt/${encodeURIComponent(p.tag)}/team">Hela teamet</a></div>`;
     }
-    case 'timeline': return timelineHtml(p);
+    case 'timeline': try { return planTimelineHtml(p.cfg ? { ...p.cfg, tag: p.tag } : p, { weeks: 16 }) || timelineHtml(p); } catch { return timelineHtml(p); }
   }
   return '';
 }

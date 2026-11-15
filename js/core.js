@@ -328,6 +328,8 @@ export function fireList() {
     (p.warnings || []).filter(w => /röd/i.test(w.level)).forEach(w => out.push({ kind: 'warn', w, p, ctx: `${p.name}: ${w.text}` }));
     if (p.shoot?.restadUtanDatum) out.push({ kind: 'warn', w: { name: `${p.shoot.restadUtanDatum} restade scener utan nytt datum`, text: 'Scenarket', url: '#/projekt/' + encodeURIComponent(p.tag) + '/produktion/scener' }, p, ctx: `${p.name}: ${p.shoot.restadUtanDatum} restade scener utan nytt datum` });
   });
+  FIRE_EXTRA.forEach(f => { try { out.push(...(f() || [])); } catch {} });
   return out;
 }
+export const FIRE_EXTRA = [];   // andra moduler (mejl, delegering, avtal …) lägger till egna bränder här
 export const fireCount = () => fireList().length;

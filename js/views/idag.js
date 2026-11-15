@@ -7,7 +7,8 @@ import {
 } from '../core.js';
 import { taskRow, eventRow, noteRow, empty, pref, setPref, openTask } from '../ui.js';
 
-let parseQuick = null;
+let parseQuick = null, PLAN = null;
+import('../plan.js').then(m => { PLAN = m; emit('render'); }).catch(() => {});
 import('../quickparse.js').then(m => { parseQuick = m.parseQuick; }).catch(() => {});
 
 // ---------- widgetkatalog ----------
@@ -29,8 +30,11 @@ const W = {
   links:      { title: 'Snabblänkar', size: 's' },
   weather:    { title: 'Väder', size: 'm' },
   contact:    { title: 'Att kontakta', size: 's' },
+  mail:       { title: 'Mejl', size: 's' },
+  capacity:   { title: 'Kapacitet', size: 'm' },
+  delegated:  { title: 'Delegerat', size: 's' },
 };
-const DEFAULT = ['greet', 'capture', 'focus', 'fire', 'next', 'tasks', 'agenda', 'week', 'projects', 'shoot', 'waiting', 'stats', 'milestones', 'notes', 'links'];
+const DEFAULT = ['greet', 'capture', 'focus', 'fire', 'next', 'tasks', 'agenda', 'mail', 'capacity', 'delegated', 'week', 'projects', 'shoot', 'waiting', 'stats', 'milestones', 'notes', 'links'];
 let editing = false;
 
 function layout() {
@@ -88,7 +92,7 @@ function widget(id, size) {
     }
     case 'fire': {
       const f = fireList();
-      return f.length ? f.slice(0, 8).map(x => x.kind === 'task' ? taskRow(x.t) : `<a class="item fire" href="${esc(x.w.url || '#/projekt/' + encodeURIComponent(x.p.tag))}"><div class="glyph" style="color:var(--fire)">!</div><div class="main"><div class="title">${esc(x.w.name)}</div><div class="sub">${esc(x.p.name)}</div></div></a>`).join('') + (f.length > 8 ? `<a class="more-link" href="#/uppgifter/forsenade">${f.length - 8} till</a>` : '')
+      return f.length ? f.slice(0, 8).map(x => x.kind === 'task' ? taskRow(x.t) : x.kind === 'mail' ? `<a class="item fire" href="${esc(x.t.url)}"><div class="glyph" style="color:var(--fire)">✉</div><div class="main"><div class="title">${esc(x.t.subject)}</div><div class="sub">Inget svar på ${x.t.days ?? '?'} dagar · ${esc(x.t.to || x.t.toEmail || '')}</div></div></a>` : x.t && x.kind !== 'warn' ? (x.html || taskRow(x.t)) : `<a class="item fire" href="${esc(x.w.url || '#/projekt/' + encodeURIComponent(x.p.tag))}"><div class="glyph" style="color:var(--fire)">!</div><div class="main"><div class="title">${esc(x.w.name)}</div><div class="sub">${esc(x.p.name)}</div></div></a>`).join('') + (f.length > 8 ? `<a class="more-link" href="#/uppgifter/forsenade">${f.length - 8} till</a>` : '')
         : `<div class="calm">Inget brinner. ✓</div>`;
     }
     case 'next': {
@@ -171,6 +175,9 @@ function widget(id, size) {
       const w = S.weather; if (!w?.days) return empty('Ingen väderprognos.');
       return `<div class="wx">${w.days.map(d => `<div><span>${esc(DAYS[parseYmd(d.date).getDay()].slice(0, 3))}</span><b>${Math.round(d.max)}°</b><small>${Math.round(d.min)}° · ${esc(WX(d.code))}</small></div>`).join('')}</div>`;
     }
+    case 'capacity': return PLAN ? PLAN.capacityWeekHtml(undefined, { compact: true }) : empty('Laddar…');
+    case 'delegated': return PLAN ? PLAN.delegationsHtml() : empty('Laddar…');
+    case 'mail': return `<div data-mailbox='{"kind":"widget"}'><p class="empty">Hämtar mejl…</p></div>`;
     case 'contact': {
       const c = tasks().filter(x => /KONTAKTA|SVARA/i.test(x.list)).slice(0, 8);
       return c.length ? c.map(x => taskRow(x)).join('') : empty('Ingen att kontakta.');

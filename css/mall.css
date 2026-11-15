@@ -1,0 +1,60 @@
+/* MALLAR – nytt projekt (vy + dialog), projektmall, dokumentmallar. Monokromt, färg bara från taggar. */
+.mall-np input, .mall-np textarea, .mall-np select,
+.mall-edit textarea, .mall-doc input, .mall-doc textarea, .mall-doc select { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; outline: none; font-size: 14.5px; font-weight: 400; }
+.mall-np input:focus, .mall-np select:focus, .mall-edit textarea:focus, .mall-doc input:focus, .mall-doc textarea:focus { border-color: var(--line-2); }
+.mall-np label, .mall-edit label, .mall-doc .np-row label { display: grid; gap: 5px; font-size: 12px; font-weight: 600; color: var(--ink-3); min-width: 0; }
+.mall-np label.inline { display: flex; font-weight: 400; font-size: 14px; color: var(--ink-2); }
+.mall-np label.inline input { width: auto; }
+.mall-edit label small, .mall-doc small { font-weight: 400; color: var(--ink-3); }
+
+.np-form { display: grid; gap: 12px; max-width: 760px; padding-top: 8px; }
+.np-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.np-row .np-tag { max-width: 160px; }
+.np-checks { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.np-checks select { width: auto; max-width: 240px; padding: 6px 9px; }
+.np-err { margin: 0; min-height: 18px; font-size: 13px; color: var(--fire); }
+.np-err:empty { min-height: 0; }
+
+.np-prev { display: grid; gap: 14px; max-width: 760px; padding-top: 8px; }
+.np-prev h3 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.015em; display: flex; align-items: center; gap: 10px; }
+.np-grp h4, .mall-pt h4 { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.np-grp p { margin: 0; font-size: 14px; color: var(--ink-2); }
+.np-grp .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.np-grp .chip { padding: 5px 10px; font-size: 12.5px; }
+.np-tree { font-size: 14px; font-variant-numeric: tabular-nums; border-left: 1px solid var(--line); padding-left: 12px; display: grid; gap: 3px; }
+.np-tree > div:first-child { color: var(--ink-3); }
+.np-tree .np-l1 { padding-left: 14px; font-weight: 600; }
+.np-tree .np-l2 { padding-left: 28px; color: var(--ink-2); }
+.np-done { padding: 14px 0; display: grid; gap: 10px; }
+.np-done b { font-size: 17px; }
+
+.mall-pt { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 22px; padding-top: 10px; }
+.mall-li { font-size: 14px; padding: 4px 0; border-top: 1px solid var(--line); }
+.mall-li small { color: var(--ink-3); margin-left: 4px; }
+.mall-edit { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; padding-top: 10px; }
+.mall-edit textarea { font-size: 13.5px; line-height: 1.5; resize: vertical; }
+.mall-edit .actions { grid-column: 1 / -1; }
+
+.mall-docs { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; padding-top: 10px; }
+.mall-doc { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 10px; align-content: start; background: var(--surface); }
+.mall-doc.editing, .mall-doc.using { grid-column: 1 / -1; }
+.mall-doc h4 { margin: 0; font-size: 15px; }
+.mall-dh { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mall-dh span { display: flex; gap: 6px; }
+.mall-doc pre, .mall-out pre { margin: 0; white-space: pre-wrap; font: 13px/1.5 inherit; font-family: inherit; color: var(--ink-2); }
+.mall-out { border-left: 2px solid var(--line-2); padding: 4px 0 4px 12px; display: grid; gap: 6px; }
+.mall-doc textarea { font-size: 13.5px; line-height: 1.5; resize: vertical; }
+
+/* dialogen */
+dialog.mall-dlg { width: min(720px, calc(100vw - 24px)); }
+.mall-dlg .np-dh { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
+.mall-dlg .np-form, .mall-dlg .np-prev { max-width: none; }
+.mall-dlg > .actions { margin-top: 10px; }
+
+@media (max-width: 560px) {
+  .mall-np input, .mall-np select, .mall-edit textarea, .mall-doc input, .mall-doc textarea, .mall-doc select { font-size: 16px; }
+  .np-row { grid-template-columns: 1fr 1fr; }
+  .np-row .np-tag { max-width: none; }
+  .mall-pt, .mall-edit, .mall-docs { grid-template-columns: 1fr; }
+  .mall-dh { flex-wrap: wrap; }
+}

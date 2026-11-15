@@ -5,6 +5,7 @@ import {
 } from '../core.js';
 import { taskRow, eventRow, noteRow, section, empty, head, pref, setPref, openTask } from '../ui.js';
 import { personProjects } from './team.js';
+import { relatedHtml } from '../kopplat.js';
 
 const av = (p, size = 36) => `<span class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size * .36)}px">${p.photo ? `<img src="${esc(p.photo)}" alt="">` : esc(initials(p.name))}</span>`;
 
@@ -63,6 +64,8 @@ function page(el, key) {
       ${projTags.length ? section('pproj', 'Projekt', projTags.length, `<div class="chips">${tagHtml(projTags)}</div>`) : ''}
       ${evs.length ? section('pevs', 'I kalendern', evs.length, evs.map(e => eventRow(e, { day: true })).join('')) : ''}
       ${section('pnotes', 'Anteckningar', ns.length, ns.length ? ns.map(noteRow).join('') : empty('Inga anteckningar nämner personen.'))}
+      ${p.email ? section('pmail', 'Mejl', null, `<div data-mailbox='${esc(JSON.stringify({ emails: (p.emails || [p.email]).filter(Boolean) }))}'><p class="empty">Hämtar mejl…</p></div>`) : ''}
+      ${relatedHtml('person', p.email || p.key, p.name)}
     </div></div>`;
   el.querySelector('[data-ptask]').onclick = () => openTask(null, { contact: { name: p.name, email: p.email } });
   el.querySelector('[data-edit]')?.addEventListener('click', () => editContact(p));

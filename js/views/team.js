@@ -1,16 +1,33 @@
 /* KC – team: koppla personer (crew, skådespelare, leverantörer…) till projekt på några sekunder.
    Sparas som rad i samlingen 'Team' och som kontaktetikett "<TAGG> · <roll>" i Google Kontakter. */
 import { S, api, emit, $, $$, esc, toast, people, personIn, initials, firstName, tagColor, tagHtml, loadContacts, shortDate, projects, knownTags } from '../core.js';
+import { conflictBadge } from './produktion.js';
 
 export const TYPES = ['Crew', 'Skådespelare', 'Leverantör', 'Manus', 'Regi', 'Producent', 'Beställare', 'Finansiär', 'Övrigt'];
 export const DEPTS = ['Produktion', 'Regi', 'Foto', 'Ljus', 'Grip', 'Ljud', 'Scenografi', 'Rekvisita', 'Kostym', 'Mask', 'Location', 'Casting', 'Stunt', 'SFX', 'VFX', 'Klipp', 'Ljudpost', 'Musik', 'Post', 'Transport', 'Catering', 'Övrigt'];
 const STATUS = ['Förfrågad', 'Intresserad', 'Bekräftad', 'Kontrakterad', 'Avböjd'];
+export const AVTAL = ['Ej påbörjat', 'Utkast', 'Skickat', 'Signerat', 'Fakturerat'];
+const avtalKlart = r => /^(Signerat|Fakturerat)$/.test(r['Avtalsstatus'] || '');
+const behoverAvtal = r => /^(Bekräftad|Kontrakterad)$/.test(r['Status'] || '') && !avtalKlart(r);
 const up = s => String(s || '').toUpperCase();
 const coll = () => (S.data?.collections || []).find(c => c.name === 'Team');
 const normTag = t => { t = up(String(t || '').trim()); return t ? (t.startsWith('#') ? t : '#' + t) : ''; };
 const tagsOf = v => String(v || '').split(/[\s,]+/).map(normTag).filter(Boolean);
 
 /** Teamrader för ett projekt. */
+/** Det som brinner: bekräftade/kontrakterade utan signerat avtal när starten är inom 14 dagar eller passerad.
+    → [{ row, tag, name, from, days, text }] (days = dagar kvar till start, negativt = passerat). */
+export function contractFire() {
+  const c = coll(); if (!c) return [];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return c.rows.filter(r => r['Person'] && behoverAvtal(r) && r['Från']).map(r => {
+    const d = new Date(String(r['Från']).slice(0, 10) + 'T00:00:00');
+    const days = Math.round((d - today) / 864e5);
+    const name = personOf(r).name;
+    return { row: r, tag: tagsOf(r['Projekt'])[0] || '', name, from: String(r['Från']).slice(0, 10), days,
+      text: `${name} saknar signerat avtal – ${days < 0 ? 'började för ' + (-days) + ' dagar sedan' : days === 0 ? 'börjar idag' : 'börjar om ' + days + ' dagar'}` };
+  }).filter(x => !isNaN(x.days) && x.days <= 14).sort((a, b) => a.days - b.days);
+}
 export function teamFor(tag) { const c = coll(); return c ? c.rows.filter(r => tagsOf(r['Projekt']).includes(normTag(tag))) : []; }
 const personOf = r => personIn(r['Person']) || { name: String(r['Person'] || ''), email: '' };
 const contactFor = email => (S.contacts?.list || []).find(c => (c.emails || []).some(e => e.toLowerCase() === String(email || '').toLowerCase()));
@@ -48,7 +65,7 @@ function formHtml(id, tag, preset = {}) {
   const sugg = f.typ === 'Skådespelare' ? roleSuggestions(f.tag) : [];
   return `<div class="tm-form" data-tmform="${id}">
     ${tag ? '' : `<label class="tm-l">Projekt<select data-tmf="tag">${['', ...tags].map(t => `<option value="${esc(t)}" ${t === f.tag ? 'selected' : ''}>${t ? esc(projects().find(p => p.tag === t)?.name || t) : 'Välj projekt…'}</option>`).join('')}</select></label>`}
-    ${f.person ? `<div class="tm-picked">${av(f.person.name, f.person.photo)}<div><b>${esc(f.person.name)}</b><small>${esc([f.person.title, f.person.org].filter(Boolean).join(', ') || f.person.email || '')}</small></div>${f.row ? '' : '<button type="button" class="btn" data-tmclear>Byt</button>'}</div>`
+    ${f.person ? `<div class="tm-picked">${av(f.person.name, f.person.photo)}<div><b>${esc(f.person.name)}</b><small>${esc([f.person.title, f.person.org].filter(Boolean).join(', ') || f.person.email || '')}</small></div>${f.row && f.row['Person'] ? '' : '<button type="button" class="btn" data-tmclear>Byt</button>'}</div>`
       : f.newp ? `<div class="tm-new"><input data-tmf="nname" value="${esc(f.newp.name)}" placeholder="Namn"><input data-tmf="nemail" value="${esc(f.newp.email)}" placeholder="E-post" type="email"><input data-tmf="nphone" value="${esc(f.newp.phone)}" placeholder="Telefon"><button type="button" class="btn" data-tmclear>Avbryt</button></div>`
       : `<div class="tm-search"><input data-tmq value="${esc(f.q)}" placeholder="Lägg till person – skriv namn, e-post eller telefon…" autocomplete="off"><div class="tm-sugg" data-tmsugg></div></div>`}
     ${f.person || f.newp ? `<div class="tm-chips">${TYPES.map(t => `<button type="button" class="chip ${t === f.typ ? 'on' : ''}" data-tmtyp="${t}">${t}</button>`).join('')}</div>
@@ -117,7 +134,7 @@ export function openTeamAdd(preset = {}) {
   if (preset.person) F[id].person = preset.person;
   if (preset.row) {
     const r = preset.row, p = personOf(r), c = contactFor(p.email);
-    Object.assign(F[id], { row: r, person: { ...(c || {}), name: p.name, email: p.email.toLowerCase(), id: c?.id || null }, typ: r['Typ'] || 'Crew', avd: r['Avdelning'] || '', roll: r['Roll'] || '', status: r['Status'] || 'Bekräftad', tag: tagsOf(r['Projekt'])[0] || preset.tag });
+    Object.assign(F[id], { row: r, person: p.name ? { ...(c || {}), name: p.name, email: p.email.toLowerCase(), id: c?.id || null } : null, typ: r['Typ'] || 'Crew', avd: r['Avdelning'] || '', roll: r['Roll'] || '', status: r['Status'] || 'Bekräftad', tag: tagsOf(r['Projekt'])[0] || preset.tag });
     r._prev = { ...r };
   }
   $('#tmDlgT').textContent = preset.row ? 'Ändra i teamet' : preset.tag ? `Lägg till i ${projects().find(p => p.tag === preset.tag)?.name || preset.tag}` : 'Lägg till i projekt';
@@ -127,13 +144,13 @@ export function openTeamAdd(preset = {}) {
 }
 
 // ---------- projektfliken Team ----------
-const V = { q: '', typ: '', paste: false, pasteText: '', pasteRows: null };
+const V = { q: '', typ: '', noAvtal: false, paste: false, pasteText: '', pasteRows: null };
 export function renderTeam(el, p, args = []) {
   if (!S.contacts) loadContacts();
   const tag = p.tag;
   const rows = teamFor(tag);
   const q = V.q.toLowerCase();
-  const list = rows.filter(r => (!V.typ || r['Typ'] === V.typ) && (!q || [r['Person'], r['Roll'], r['Avdelning'], r['Typ']].join(' ').toLowerCase().includes(q)));
+  const list = rows.filter(r => (!V.typ || r['Typ'] === V.typ) && (!V.noAvtal || behoverAvtal(r)) && (!q || [r['Person'], r['Roll'], r['Avdelning'], r['Typ']].join(' ').toLowerCase().includes(q)));
   const id = 'tab_' + tag;
   if (!F[id] || F[id].tag !== tag) F[id] = { q: '', person: null, typ: 'Crew', avd: '', roll: '', status: 'Bekräftad', newp: null, row: null, tag };
   const groups = {};
@@ -145,7 +162,7 @@ export function renderTeam(el, p, args = []) {
     ${coll() ? '' : '<div class="notice">Samlingen Team finns inte än. Kör <b>setup</b> i Apps Script och gör en ny version, så skapas den.</div>'}
     ${formHtml(id, tag)}
     <div class="tm-tools">
-      <div class="chips"><button class="chip ${!V.typ ? 'on' : ''}" data-tmfilter="">Alla <span>${rows.length}</span></button>${counts.map(([t, n]) => `<button class="chip ${V.typ === t ? 'on' : ''}" data-tmfilter="${t}">${t} <span>${n}</span></button>`).join('')}</div>
+      <div class="chips"><button class="chip ${!V.typ ? 'on' : ''}" data-tmfilter="">Alla <span>${rows.length}</span></button>${counts.map(([t, n]) => `<button class="chip ${V.typ === t ? 'on' : ''}" data-tmfilter="${t}">${t} <span>${n}</span></button>`).join('')}${rows.some(behoverAvtal) || V.noAvtal ? `<button class="chip tm-noavtal ${V.noAvtal ? 'on' : ''}" data-tmnoavtal>Saknar avtal <span>${rows.filter(behoverAvtal).length}</span></button>` : ''}</div>
       <div class="tm-acts"><input class="tsearch" data-tmsearch value="${esc(V.q)}" placeholder="Filtrera…"><button class="btn" data-tmpaste>Klistra in lista</button><button class="btn" data-tmcopy>Kopiera kontaktlista</button><button class="btn" data-tmcsv>CSV</button></div>
     </div>
     ${V.paste ? pasteHtml(tag) : ''}
@@ -159,10 +176,19 @@ export function renderTeam(el, p, args = []) {
 function rowHtml(r) {
   const p = personOf(r), c = contactFor(p.email);
   const phone = (c?.phones || [])[0];
+  const empty = !p.name;
+  const fire = contractFire().some(x => x.row === r);
+  const avtal = r['Avtalsstatus'] || 'Ej påbörjat';
+  const contract = empty || /^(Avböjd|Förfrågad)$/.test(r['Status'] || '') ? '' : `<div class="tm-av ${fire ? 'fire' : ''}">
+      <select data-tmavtal="${esc(r._id)}" aria-label="Avtalsstatus" class="tm-avs tm-avs-${esc(avtal.toLowerCase().replace(/\s+/g, '-'))}">${AVTAL.map(a => `<option ${a === avtal ? 'selected' : ''}>${a}</option>`).join('')}</select>
+      ${r['Avtal'] ? `<a class="btn" href="${esc(r['Avtal'])}" target="_blank" rel="noopener">Avtal ↗</a>` : `<button class="btn" data-tmdraft="${esc(r._id)}">Avtalsutkast</button>`}</div>`;
+  if (empty) return `<div class="tm-r tm-ph ${r.pending ? 'pending' : ''}"><span class="avatar" style="width:34px;height:34px;font-size:13px">?</span>
+    <div class="main"><span class="title">Ej tillsatt</span><div class="sub">${esc([r['Roll'], r['Avdelning']].filter(Boolean).join(' · ') || r['Typ'] || '')}</div></div>
+    <div class="tm-ra"><button class="btn solid" data-tmedit="${esc(r._id)}">Tillsätt</button><button class="btn tm-x" data-tmdel="${esc(r._id)}" title="Ta bort platsen">×</button></div></div>`;
   return `<div class="tm-r ${r.pending ? 'pending' : ''}">${av(p.name, c?.photo)}
-    <div class="main"><a class="title" href="#/person/${encodeURIComponent((p.email || p.name).toLowerCase())}">${esc(p.name)}</a>
+    <div class="main"><a class="title" href="#/person/${encodeURIComponent((p.email || p.name).toLowerCase())}">${esc(p.name)}</a>${(() => { try { return conflictBadge(tagsOf(r['Projekt'])[0], p.email || p.name); } catch { return ''; } })()}
       <div class="sub">${esc([r['Roll'], r['Typ'] !== 'Crew' ? '' : r['Avdelning']].filter(Boolean).join(' · ') || r['Typ'] || '')}${r['Status'] ? `<span class="tm-st tm-st-${esc(String(r['Status']).toLowerCase())}">${esc(r['Status'])}</span>` : ''}${r['Från'] ? `<span class="hint">${esc(shortDate(r['Från']))}${r['Till'] ? '–' + esc(shortDate(r['Till'])) : ''}</span>` : ''}</div></div>
-    <div class="tm-ra">${phone ? `<a class="btn" href="tel:${esc(phone.replace(/\s/g, ''))}" title="${esc(phone)}">Ring</a>` : ''}${p.email ? `<a class="btn" href="mailto:${esc(p.email)}">Mejla</a>` : ''}<button class="btn" data-tmedit="${esc(r._id)}">Ändra</button><button class="btn tm-x" data-tmdel="${esc(r._id)}" title="Ta bort ur teamet">×</button></div></div>`;
+    ${contract}<div class="tm-ra">${phone ? `<a class="btn" href="tel:${esc(phone.replace(/\s/g, ''))}" title="${esc(phone)}">Ring</a>` : ''}${p.email ? `<a class="btn" href="mailto:${esc(p.email)}">Mejla</a>` : ''}<button class="btn" data-tmedit="${esc(r._id)}">Ändra</button><button class="btn tm-x" data-tmdel="${esc(r._id)}" title="Ta bort ur teamet">×</button></div></div>`;
 }
 
 // ---------- klistra in lista ----------
@@ -249,7 +275,7 @@ function bindOnce() {
     if (t.matches('[data-tmpastetext]')) { V.pasteText = t.value; return; }
     if (t.matches('[data-tmprow]')) { V.pasteRows[t.dataset.tmprow][t.dataset.k] = t.value; }
   });
-  document.addEventListener('change', e => { const t = e.target; if (t.matches('[data-tmprow]')) V.pasteRows[t.dataset.tmprow][t.dataset.k] = t.value; const id = formId(t); if (id && t.matches('select[data-tmf]')) { F[id][t.dataset.tmf] = t.value; if (t.dataset.tmf === 'tag') redrawForm(id); } });
+  document.addEventListener('change', e => { const t = e.target; if (t.matches('[data-tmavtal]')) return setAvtal(t.dataset.tmavtal, t.value); if (t.matches('[data-tmprow]')) V.pasteRows[t.dataset.tmprow][t.dataset.k] = t.value; const id = formId(t); if (id && t.matches('select[data-tmf]')) { F[id][t.dataset.tmf] = t.value; if (t.dataset.tmf === 'tag') redrawForm(id); } });
   document.addEventListener('keydown', e => {
     const t = e.target, id = formId(t); if (!id) return;
     const f = F[id];
@@ -279,6 +305,8 @@ function bindOnce() {
     const tm = t.closest('.tm'); if (!tm) return;
     const tag = tm.dataset.tmtag;
     const fl = t.closest('[data-tmfilter]'); if (fl) { V.typ = fl.dataset.tmfilter; return emit('render'); }
+    if (t.closest('[data-tmnoavtal]')) { V.noAvtal = !V.noAvtal; return emit('render'); }
+    const dr = t.closest('[data-tmdraft]'); if (dr) return openDraft(dr.dataset.tmdraft, tag);
     if (t.closest('[data-tmpaste]')) { V.paste = !V.paste; return emit('render'); }
     if (t.closest('[data-tmpasteclose]')) { V.paste = false; V.pasteRows = null; return emit('render'); }
     if (t.closest('[data-tmpasteparse]')) { V.pasteRows = parsePaste(V.pasteText); return emit('render'); }
@@ -292,10 +320,10 @@ function bindOnce() {
     const del = t.closest('[data-tmdel]');
     if (del) {
       const c = coll(), r = c?.rows.find(x => String(x._id) === del.dataset.tmdel); if (!r) return;
-      const p = personOf(r); if (!confirm(`Ta bort ${p.name} ur teamet?`)) return;
+      const p = personOf(r); if (!confirm(p.name ? `Ta bort ${p.name} ur teamet?` : `Ta bort platsen ${r['Roll'] || r['Avdelning'] || ''}?`)) return;
       const i = c.rows.indexOf(r); c.rows.splice(i, 1); emit('render');
       api('deleteRow', { collection: 'Team', id: r._id }, true, c._src || 'jobb').then(() => {
-        const cc = contactFor(p.email); if (cc) api('labelContact', { id: cc.id, label: labelFor(tag, r), on: false }, true).catch(() => {});
+        const cc = p.email && contactFor(p.email); if (cc) api('labelContact', { id: cc.id, label: labelFor(tag, r), on: false }, true).catch(() => {});
         toast('Borttagen ur teamet');
       }).catch(err => { c.rows.splice(i, 0, r); emit('render'); toast('Kunde inte ta bort – ' + err.message); });
     }
@@ -309,4 +337,45 @@ function pick(id, i) {
   else { const q = f.q.trim(); f.newp = { name: /@/.test(q) ? '' : q, email: /@/.test(q) ? q : '', phone: '' }; }
   redrawForm(id);
   setTimeout(() => document.querySelector(`[data-tmform="${id}"] ${f.newp ? '[data-tmf="nname"]' : '[data-tmf="roll"]'}`)?.focus(), 20);
+}
+
+// ---------- avtal ----------
+async function setAvtal(id, value) {
+  const c = coll(), r = c?.rows.find(x => String(x._id) === String(id)); if (!r) return;
+  const before = r['Avtalsstatus'];
+  r['Avtalsstatus'] = value; emit('render');
+  try { await api('saveRow', { collection: 'Team', id: r._id, values: { Avtalsstatus: value } }, true, c._src || 'jobb'); toast('Avtalsstatus: ' + value); }
+  catch (e) { r['Avtalsstatus'] = before; emit('render'); toast('Kunde inte spara – ' + e.message); }
+}
+let TPL = null;
+async function openDraft(id, tag) {
+  const c = coll(), r = c?.rows.find(x => String(x._id) === String(id)); if (!r) return;
+  let d = $('#tmDraftDlg');
+  if (!d) {
+    document.body.insertAdjacentHTML('beforeend', `<dialog id="tmDraftDlg" class="sheet tm-dlg"><h2>Avtalsutkast</h2><p class="hint" id="tmDrH"></p><div id="tmDrB"><p class="empty">Hämtar mallar…</p></div><div class="actions"><span class="spacer"></span><button class="ghost" data-drclose>Stäng</button></div></dialog>`);
+    d = $('#tmDraftDlg');
+    d.addEventListener('click', e => { if (e.target.closest('[data-drclose]')) d.close(); const b = e.target.closest('[data-drtpl]'); if (b) makeDraft(d, b.dataset.drtpl); });
+  }
+  const p = personOf(r);
+  d._row = r; d._tag = tag;
+  $('#tmDrH').textContent = `${p.name} · ${r['Roll'] || r['Avdelning'] || r['Typ'] || ''}. Mallen kopieras till projektets mapp Avtal och fylls i. Inget skickas – du skickar själv.`;
+  d.showModal();
+  try { if (!TPL) TPL = await api('contractTemplates', {}, false, c._src || 'jobb'); drawTpl(); }
+  catch (e) { $('#tmDrB').innerHTML = `<p class="empty">Kunde inte hämta mallar: ${esc(e.message)}</p>`; }
+}
+function drawTpl() {
+  const t = TPL || {};
+  $('#tmDrB').innerHTML = (t.templates || []).length
+    ? `<div class="tm-tpl">${t.templates.map(x => `<button class="tm-opt" data-drtpl="${esc(x.id)}"><span class="avatar" style="width:26px;height:26px;font-size:12px">≡</span><span><b>${esc(x.name)}</b><small>Google Docs</small></span></button>`).join('')}</div>
+       <p class="hint" style="margin-top:10px">Platshållare: {{Namn}} {{E-post}} {{Telefon}} {{Roll}} {{Avdelning}} {{Projekt}} {{Projektnamn}} {{Från}} {{Till}} {{Datum}}. ${t.folderUrl ? `<a href="${esc(t.folderUrl)}" target="_blank" rel="noopener">Öppna mallmappen</a>` : ''}</p>`
+    : `<p class="empty">Inga mallar än. Lägg Google Docs-mallar i Drive-mappen KC_Avtalsmallar${t.folderUrl ? ` (<a href="${esc(t.folderUrl)}" target="_blank" rel="noopener">öppna</a>)` : ''} och använd platshållarna {{Namn}}, {{Roll}}, {{Från}} osv.</p>`;
+}
+async function makeDraft(d, template) {
+  const r = d._row, c = coll(), p = personOf(r), ct = contactFor(p.email);
+  $('#tmDrB').innerHTML = '<p class="empty">Skapar utkast…</p>';
+  try {
+    const res = await api('contractDraft', { tag: d._tag, rowId: r._id, template, phone: (ct?.phones || [])[0] || '' }, true, c._src || 'jobb');
+    r['Avtal'] = res.url; r['Avtalsstatus'] = 'Utkast'; emit('render');
+    $('#tmDrB').innerHTML = `<p>Klart: <a href="${esc(res.url)}" target="_blank" rel="noopener">${esc(res.name)}</a></p><p class="hint">Status satt till Utkast. Granska, skicka själv och ändra status till Skickat.</p>`;
+  } catch (e) { $('#tmDrB').innerHTML = `<p class="empty">Kunde inte skapa: ${esc(e.message)}</p>`; }
 }

@@ -4,6 +4,7 @@ import {
   loadNoteText, notesUrl, claudeUrl, tagColor, people, modeCls, projects,
 } from '../core.js';
 import { noteRow, section, empty, head, pref, setPref, openTask } from '../ui.js';
+import { relatedHtml } from '../kopplat.js';
 
 export function render(el, args, view) {
   if (view === 'anteckning' && args[0]) return page(el, decodeURIComponent(args[0]));
@@ -61,6 +62,7 @@ function page(el, id) {
         ${section('nback', 'Bakåtlänkar', back.length, back.length ? back.map(noteRow).join('') : '<p class="empty">Inga anteckningar länkar hit.</p>')}
         ${dates.length ? section('ndates', 'Datum', dates.length, dates.map(d => `<a class="item" href="#/kalender/dag/${d}"><div class="glyph">▦</div><div class="main"><div class="title">${esc(shortDate(d))}</div></div></a>`).join('')) : ''}
         ${sameTag.length ? section('ntag', 'Samma projekt', sameTag.length, sameTag.map(noteRow).join('')) : ''}
+        ${relatedHtml('note', n.id, n.title)}
       </aside></div>`;
   el.querySelector('[data-ntask]').onclick = () => openTask(null, { title: '', tag: firstTag });
 }

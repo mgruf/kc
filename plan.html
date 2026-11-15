@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Produktionsplan · KC</title>
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+<link rel="stylesheet" href="css/plan-app.css">
+</head>
+<body class="v-plan">
+<div class="wrap">
+  <section class="top">
+    <div class="ident">
+      <div class="eyebrow" id="company">Produktionsplan</div>
+      <div class="titlerow"><h1 id="title">Produktionsplan</h1><select id="projSel" aria-label="Byt projekt" hidden></select>
+        <span class="seg" id="themeSel" title="Ljust eller mörkt läge"><button type="button" data-v="auto" title="Följ datorns inställning">Auto</button><button type="button" data-v="light">Ljust</button><button type="button" data-v="dark">Mörkt</button></span>
+        <span class="seg" id="viewSel"><button type="button" data-v="plan" aria-pressed="true">Plan</button><button type="button" data-v="pf">Alla projekt</button></span></div>
+      <div class="source" id="source"></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnLoad" type="button">Hämta från Sheet</button>
+      <button class="btn primary" id="btnSave" type="button">Spara till Sheet</button>
+      <label class="check small autos" title="Spara till arket automatiskt några sekunder efter varje ändring"><input type="checkbox" id="autosave"> Autospara</label>
+      <button class="btn" id="btnExport" type="button" aria-haspopup="menu">Exportera ▾</button>
+    </div>
+  </section>
+
+  <div id="planview">
+  <section class="keys" id="keys" aria-label="Nyckeldatum"></section>
+  <section class="alerts" id="alerts" aria-live="polite"></section>
+
+  <section class="toolbar" aria-label="Visning">
+    <span class="tgroup"><span class="tlabel">Skala</span>
+      <span class="seg" id="zoom"><button type="button" data-v="day">Dag</button><button type="button" data-v="week">Vecka</button><button type="button" data-v="month">Månad</button><button type="button" data-v="quarter">Kvartal</button></span></span>
+    <span class="tgroup"><span class="tlabel">Film</span>
+      <span class="seg" id="film"><button type="button" data-v="all">Alla</button><button type="button" data-v="1">F1</button><button type="button" data-v="2">F2</button><button type="button" data-v="3">F3</button></span></span>
+    <span class="tgroup"><span class="tlabel">Rader</span>
+      <span class="seg" id="rowmode"><button type="button" data-v="manual" title="Egna rader som du ordnar, döper och fyller">Egna rader</button><button type="button" data-v="packed" title="En rad per person">Per person</button><button type="button" data-v="detail">En per fas</button></span></span>
+    <span class="tgroup" id="groupwrap"><span class="tlabel">Gruppera</span>
+      <span class="seg" id="groupby"><button type="button" data-v="dept">Avdelning</button><button type="button" data-v="film">Film</button></span></span>
+    <span class="tgroup"><span class="tlabel">Beroenden</span>
+      <span class="seg" id="rulesSel"><button type="button" data-v="on" title="Faser följer varandra enligt reglerna">På</button><button type="button" data-v="off" title="Lägg staplarna fritt, inget flyttar med">Av</button></span></span>
+    <span class="tgroup"><span class="tlabel">Pilar</span>
+      <span class="seg" id="arrowmode"><button type="button" data-v="off">Av</button><button type="button" data-v="sel" title="Visa beroenden för markerade staplar">Markerade</button><button type="button" data-v="all">Alla</button></span></span>
+    <span class="tgroup fgroup"><span class="tlabel">Filter</span>
+      <input id="fq" type="search" placeholder="Sök fas, person, kommentar" aria-label="Filtrera på text">
+      <select id="fwhen" aria-label="Filtrera på tid"><option value="">Hela tiden</option><option value="now">Pågår idag</option><option value="d30">Närmaste 30 dagarna</option><option value="d90">Närmaste 90 dagarna</option><option value="past">Redan passerat</option></select>
+      <select id="fstatus" aria-label="Filtrera på status"><option value="">Alla statusar</option><option value="any">Har status</option><option value="klar">✓ Klar</option><option value="pagar">▸ Pågår</option><option value="risk">! Risk</option><option value="beslut">? Väntar på beslut</option><option value="bokad">B Bokad</option></select>
+      <label class="check small"><input type="checkbox" id="fhide"> Dölj övriga</label>
+      <span class="finfo" id="fInfo"></span><button class="linkbtn" type="button" id="fClear" hidden>Rensa</button></span>
+    <span class="spacer"></span>
+    <button class="btn small" id="btnToday" type="button" title="Scrolla till idag">Idag</button>
+    <button class="btn small" id="btnUndo" type="button" title="Ångra (Ctrl/Cmd+Z)">Ångra</button>
+    <button class="btn small" id="btnRedo" type="button" title="Gör om (Ctrl/Cmd+Shift+Z)">Gör om</button>
+    <button class="btn small" id="btnRow" type="button">Ny rad</button>
+    <button class="btn small" id="btnNew" type="button">Ny fas</button>
+    <button class="btn small" id="btnRes" type="button">Resurser</button>
+    <button class="btn small" id="btnCal" type="button">Kalender</button>
+    <button class="btn small" id="btnTpl" type="button">Mallar</button>
+    <button class="btn small" id="btnSec" type="button">Sektioner</button>
+    <button class="btn small" id="btnVar" type="button">Versioner</button>
+    <button class="btn small" id="btnBud" type="button">Budget</button>
+    <button class="btn small" id="btnLog" type="button">Logg</button>
+    <button class="btn small" id="btnImp" type="button">Importera</button>
+    <button class="btn small accent" id="btnAi" type="button" hidden>Assistent</button>
+  </section>
+
+  <div class="selbar" id="selbar" hidden></div>
+  <section class="board">
+    <div class="scroller" id="scroller"><div class="grid" id="grid"></div></div>
+    <div class="legend" id="legend"></div>
+  </section>
+  <details class="help">
+    <summary>Så redigerar du</summary>
+    <div class="helpgrid">
+      <div><b>Flytta</b> Dra en stapel. Allt som väntar på den flyttas med.</div>
+      <div><b>Ändra längd</b> Dra i stapelns högerkant.</div>
+      <div><b>Byt rad</b> Dra stapeln upp eller ner till en annan rad. En milstolpe kan ligga på samma rad som sin stapel.</div>
+      <div><b>Rader</b> Dra i radnamnet för att flytta raden, också till en annan sektion. Dubbelklicka för att byta namn. Högerklicka för ny rad och ta bort.</div>
+      <div><b>Ny fas</b> Dra i en tom del av en rad, eller dubbelklicka där.</div>
+      <div><b>Koppla</b> Markera en stapel och dra från pricken vid dess slut till stapeln som ska vänta. Pricken vid starten ger samtidig start. Alt-dra fungerar också.</div>
+      <div><b>Markera flera</b> Shift- eller ⌘/Ctrl-klicka. Klicka på ett radnamn för att markera radens faser.</div>
+      <div><b>Röda dagar och uppehåll</b> Inget arbete läggs där. Markera staplar och högerklicka för att låta dem jobba igenom.</div>
+      <div><b>Dela</b> Högerklicka på stapeln och välj Dela här.</div>
+      <div><b>Duplicera, kopiera</b> ⌘/Ctrl+D, ⌘/Ctrl+C och ⌘/Ctrl+V, eller högerklicka i tidslinjen.</div>
+      <div><b>Knuffa</b> Piltangenterna flyttar markerade en dag, med Shift en vecka.</div>
+      <div><b>Ångra</b> ⌘/Ctrl+Z, gör om med ⌘/Ctrl+Shift+Z.</div>
+    </div>
+    <p class="foot">Planen räknas fram ur reglerna: längd i arbetsdagar, beroenden och vem som gör jobbet. Inspelningen räknas mån–tors, allt annat mån–fre.</p>
+  </details>
+  </div>
+  <div id="pf" hidden>
+    <section class="toolbar" aria-label="Portfölj">
+      <span class="tgroup"><span class="tlabel">Skala</span><span class="seg" id="pfZoom"><button type="button" data-v="week">Vecka</button><button type="button" data-v="month">Månad</button><button type="button" data-v="quarter">Kvartal</button><button type="button" data-v="year">År</button></span></span>
+      <span class="tgroup"><span class="tlabel">Person</span><select id="pfPerson" aria-label="Visa en persons uppdrag"><option value="">Alla</option></select></span>
+      <button class="btn small" id="pfCompact" type="button" aria-pressed="false" title="En rad per projekt">Kompakt</button>
+      <span class="pf-status" id="pfStatus"></span>
+      <span class="spacer"></span>
+      <button class="btn small" id="pfRefresh" type="button">Uppdatera</button>
+      <button class="btn small" id="pfAdd" type="button" title="Öppna registret i Google Sheets">Registret</button>
+      <button class="btn small primary" id="pfNew" type="button">Ny produktion</button>
+    </section>
+    <section class="alerts pf-clashes" id="pfClash" aria-live="polite"></section>
+    <section class="board">
+      <div class="scroller" id="pfscroll"><div class="grid z-month" id="pfgrid"></div></div>
+      <div class="legend"><span><i style="background:var(--d-utv)"></i>Utveckling</span><span><i style="background:var(--d-prep)"></i>Förproduktion</span><span><i style="background:var(--d-shoot)"></i>Inspelning</span><span><i style="background:var(--d-klipp)"></i>Post</span><span><i style="background:var(--d-lev)"></i>Leverans</span><span><i class="lg-clash"></i>Krock i tid</span><span><i class="lg-dem"></i>Bemanning, mörkare = fler</span></div>
+    </section>
+    <p class="foot pf-foot">Varje produktion har ett eget planark. Registret listar dem. Krockar räknas på inspelningar som överlappar och på namngivna personer som är bokade i två projekt samma dagar. Platshållare som ”Finklippare 2” räknas inte.</p>
+  </div>
+</div>
+
+<aside class="panel" id="panel" hidden></aside>
+<div class="dragtip" id="dragtip" hidden></div>
+<div class="ctx" id="ctx" role="menu" hidden></div>
+<div class="toast" id="toast" hidden></div>
+<script type="module" src="js/plan/app.js"></script>
+</body>
+</html>

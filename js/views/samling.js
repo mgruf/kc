@@ -5,6 +5,8 @@ import {
   tagColor, tagHtml, personIn, initials, firstName, people, knownTags,
 } from '../core.js';
 import { head, pref, setPref, empty } from '../ui.js';
+import { relatedHtml as _rel } from '../kopplat.js';
+const relRow = (c, r, t) => { try { return _rel('row', c.name + ':' + r._id, t || ''); } catch { return ''; } };
 
 // ---------- typer ----------
 const TYPES = [['text', 'Text'], ['lång', 'Lång text'], ['datum', 'Datum'], ['val', 'Val'], ['flerval', 'Flerval'], ['tal', 'Tal'], ['kryss', 'Kryss'], ['länk', 'Länk'], ['person', 'Person'], ['projekt', 'Projekt']];
@@ -282,6 +284,7 @@ function rowPage(el, c, r, isNew) {
       ${S.data?.dbUrl && !isNew ? `<a class="ghost" href="${esc(S.data.dbUrl)}" target="_blank" rel="noopener" style="font-size:13px;color:var(--ink-3)">Öppna arket</a>` : ''}
       ${isNew ? `<a class="ghost" href="#/samling/${encodeURIComponent(c.name)}">Avbryt</a><button type="button" data-pcreate>Skapa</button>` : ''}</div>
     ${c.name === 'Projekt' && isNew ? '<p class="hint">Taggen (t.ex. #VER2) kopplar ihop uppgifter, anteckningar och händelser med projektet. Länkar till Drive-mapp, scenark och produktionsplan gör att KC läser in dem.</p>' : ''}
+    ${isNew ? '' : `<div class="coll-rel">${relRow(c, r, val(titleF))}</div>`}
     ${datalists(c)}</div>`;
   if (isNew) setTimeout(() => el.querySelector('.coll-ptitle')?.focus(), 30);
 }

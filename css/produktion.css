@@ -1,3 +1,4 @@
+@import url("callsheet.css");
 /* KC – produktion (Yamdu-läget). Monokromt; rött bara för restat. Allt prefixat .prod. */
 .prod-tabs { display: flex; align-items: center; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); margin: 4px 0 18px; scrollbar-width: none; }
 .prod-tabs::-webkit-scrollbar { display: none; }

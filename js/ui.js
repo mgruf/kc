@@ -5,6 +5,7 @@ import {
   mailHref, firstName, initials, people, knownTags, gcalLink, claudeUrl, notesUrl, go, merge, store, sources, setSources,
 } from './core.js';
 import { afterComplete } from './recur.js';
+import { relatedHtml, eventKey } from './kopplat.js';
 
 // ---------- rader ----------
 export function taskRow(t, opt = {}) {
@@ -149,7 +150,8 @@ export function openTask(id, preset = {}) {
     c && `<a href="#/person/${encodeURIComponent(c.email.toLowerCase())}">Allt med ${esc(firstName(c.name))}</a>`,
     `<a href="${claudeUrl('Uppgift: ' + t.title + (t.notes ? '\n' + t.notes : ''))}" target="_blank" rel="noopener">Fråga Claude</a>`,
     t.link && `<a href="${esc(t.link)}" target="_blank" rel="noopener">Öppna i Tasks</a>`,
-  ].filter(Boolean).join('');
+    `<a href="#" data-delegate>Delegera…</a>`,
+  ].filter(Boolean).join('') + (t ? `<div class="dlg-rel">${safeRel(() => relatedHtml('task', t.id, cleanTitle(t.title), { compact: true }))}</div>` : '');
   $('#taskDlg').showModal();
   if (!t) setTimeout(() => $('#tTitle').focus(), 30);
 }
@@ -229,6 +231,11 @@ export async function timeBlock(t, date, time, minutes = 60, calId) {
   } catch (e) { S.data.events = S.data.events.filter(x => x !== tmp); emit('render'); toast('Kunde inte boka – ' + e.message); }
 }
 
+const safeRel = fn => { try { return fn(); } catch (e) { console.warn(e); return ''; } };
+document.addEventListener('click', e => { if (e.target.closest('[data-delegate]')) { e.preventDefault(); const t = TASK; $('#taskDlg').close(); import('./plan.js').then(m => m.delegateDialog(t)); } });
+// Länkar i dialogerna stänger dialogen när man navigerar
+document.addEventListener('click', e => { const a = e.target.closest('dialog a[href^="#/"]'); if (a) a.closest('dialog')?.close(); });
+
 // ---------- händelseredigeraren ----------
 let EVENT = null;
 const allEvents = () => [...(S.data?.events || []), ...S.extraEvents];
@@ -270,9 +277,10 @@ export function openEvent(id, start, preset = {}) {
   $('#eCancel').textContent = editable ? 'Avbryt' : 'Stäng';
   $('#eHint').textContent = isNew ? '' : editable ? e.cal : e.recurring ? `${e.cal} · Återkommande – ändras i Google Kalender.` : `${e.cal} · Läses bara härifrån.`;
   $('#eLinks').innerHTML = isNew ? '' : [
+    `<a href="#/mote/${encodeURIComponent(e.id)}/${encodeURIComponent(e.start)}" data-closedlg>Mötessida</a>`,
     e.calId && `<a href="${esc(gcalLink(e))}" target="_blank" rel="noopener">Öppna i Google Kalender</a>`,
     `<a href="${claudeUrl('Kalenderhändelse: ' + e.title + ' ' + (e.allDay ? e.start : new Date(e.start).toLocaleString('sv-SE')) + (e.location ? ', ' + e.location : '') + (e.description ? '\n' + e.description : ''))}" target="_blank" rel="noopener">Fråga Claude</a>`,
-  ].filter(Boolean).join('');
+  ].filter(Boolean).join('') + (isNew ? '' : `<div class="dlg-rel">${safeRel(() => relatedHtml('event', eventKey(e), e.title, { compact: true }))}</div>`);
   $('#evDlg').showModal();
   if (isNew) setTimeout(() => { const i = $('#eTitle'); i.focus(); i.setSelectionRange(0, 0); }, 30);
 }

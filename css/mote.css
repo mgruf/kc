@@ -1,0 +1,76 @@
+/* KC – mötessidan, Kopplat-panelen och mejllistor. */
+
+/* ---------- möte ---------- */
+.v-mote .mt-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 22px 0 14px; }
+.v-mote .mt-head h1 { margin: 0; font-size: 32px; line-height: 1.12; font-weight: 650; letter-spacing: -.022em; }
+.v-mote .mt-tt { min-width: 0; flex: 1 1 380px; }
+.v-mote .mt-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; margin-top: 8px; font-size: 14px; color: var(--ink-2); }
+.v-mote .mt-meta .tags { margin-left: 0; }
+.v-mote .mt-loc { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 13.5px; color: var(--ink-2); }
+.v-mote .mt-loc a { color: var(--ink); border-bottom: 1px solid var(--line-2); }
+.v-mote .mt-act { display: flex; flex-wrap: wrap; gap: 8px; }
+.v-mote .mt-seg { margin: 4px 0 6px; }
+.v-mote .mt-grid { display: grid; gap: 0 48px; }
+@media (min-width: 1000px) { .v-mote .mt-grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+.v-mote .mt-p { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.v-mote .mt-p:first-child { border-top: 0; }
+.v-mote .mt-pn { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.v-mote .mt-pn b { font-weight: 550; }
+.v-mote .mt-pn small { font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-mote .mt-st { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.v-mote .mt-st.st-declined, .v-mote .mt-st.st-no { color: var(--fire); }
+.v-mote .mt-st.st-accepted, .v-mote .mt-st.st-yes, .v-mote .mt-st.st-owner { color: var(--ink); }
+.v-mote .mt-desc { font-size: 14.5px; line-height: 1.6; }
+.v-mote .mt-qb input { width: 100%; margin-top: 8px; font: inherit; font-size: 14px; padding: 9px 12px; border: 1px dashed var(--line-2); border-radius: 9px; background: transparent; color: var(--ink); outline: none; }
+.v-mote .mt-qb input:focus { border-style: solid; background: var(--surface); }
+.v-mote .mt-after { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 14px 0 4px; display: grid; gap: 8px; }
+.v-mote .mt-after h3 { margin: 0; font-size: 17px; font-weight: 650; }
+.v-mote .mt-after textarea, .v-mote .mt-after input, .v-mote .mt-after select { width: 100%; font: inherit; font-size: 14px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; outline: none; }
+.v-mote .mt-after .lbl { margin: 6px 0 -2px; }
+.v-mote .mt-todo { display: grid; grid-template-columns: 1fr 160px 150px; gap: 6px; }
+@media (max-width: 640px) { .v-mote .mt-todo { grid-template-columns: 1fr 1fr; } .v-mote .mt-todo input:first-child { grid-column: 1 / -1; } }
+.v-mote .mt-after .addrow { justify-self: start; font-size: 13px; color: var(--ink-3); padding: 2px 0; }
+.v-mote .mt-after .actions button { padding: 9px 16px; border-radius: 9px; background: var(--ink); color: var(--bg); }
+.v-mote .mt-after .actions .ghost { background: none; color: var(--ink-2); }
+
+/* ---------- Kopplat ---------- */
+.kp { margin-top: 26px; }
+.kp.compact { margin-top: 10px; }
+.kp-h { display: flex; align-items: baseline; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 4px; }
+.kp-h .n { font-weight: 500; letter-spacing: 0; }
+.kp-add { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 12.5px; color: var(--ink-2); padding: 3px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+.kp-add:hover { color: var(--ink); border-color: var(--line-2); }
+.kp-it { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.kp-it.item { border-top: 1px solid var(--line); }
+.kp-b > .kp-it:first-child { border-top: 0; }
+.kp-it.gone { opacity: .5; }
+.kp-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.kp-t b { font-weight: 500; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kp-t small { font-size: 11.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kp-k, .kp-av { flex: none; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font: 600 10px/1 var(--sans); font-style: normal; background: var(--sunk); color: var(--ink-3); }
+.kp-av { border-radius: 50%; background: var(--line); color: var(--ink-2); font-size: 9px; }
+.kp-sw { flex: none; width: 10px; height: 10px; margin: 0 6px; border-radius: 3px; background: var(--tc); }
+.kp-x { flex: none; width: 24px; height: 24px; border-radius: 6px; color: var(--ink-3); font-size: 15px; }
+.kp-x:hover { background: var(--sel); color: var(--fire); }
+.kp-sep { font-size: 11px; color: var(--ink-3); padding: 10px 0 2px; }
+.kp-empty { font-size: 13.5px; color: var(--ink-3); margin: 4px 0; }
+.kp-dlg .kp-res { max-height: 50vh; overflow-y: auto; margin: 0 -6px; }
+.kp-dlg input { font-size: 16px !important; }
+
+/* ---------- mejl ---------- */
+.ml-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+.ml-row:first-child { border-top: 0; }
+.ml-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ml-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.ml-from { font-weight: 500; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-date { flex: none; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.ml-subj { font-size: 14px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-n { font-style: normal; font-size: 11px; color: var(--ink-3); margin-left: 6px; }
+.ml-snip { font-size: 12.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-row.unread .ml-from, .ml-row.unread .ml-subj { color: var(--ink); font-weight: 650; }
+.ml-web { flex: none; font-size: 11.5px; color: var(--ink-3); padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; margin-top: 2px; }
+.ml-web:hover { color: var(--ink); }
+.ml-empty { font-size: 13.5px; color: var(--ink-3); margin: 4px 0; }
+.ml-h { display: flex; gap: 8px; align-items: baseline; font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin: 12px 0 2px; }
+.ml-h:first-child { margin-top: 0; }
+.ml-h .n { letter-spacing: 0; font-weight: 500; }

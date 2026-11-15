@@ -13,12 +13,24 @@ import * as personer from './views/personer.js';
 import * as projekt from './views/projekt.js';
 import * as samling from './views/samling.js';
 import * as horisont from './views/horisont.js';
+import * as mote from './views/mote.js';
+import * as vecka from './views/vecka.js';
+import * as mall from './views/mall.js';
+import * as plan from './views/plan.js';
+import { contractFire } from './views/team.js';
+import { delegationFire } from './plan.js';
+import { mailFireItems, loadWaiting } from './mejl.js';
+import './kopplat.js';
+import { FIRE_EXTRA } from './core.js';
+FIRE_EXTRA.push(mailFireItems);
+FIRE_EXTRA.push(() => contractFire().map(x => ({ kind: 'warn', w: { name: x.text || x.name || 'Avtal saknas', text: 'Avtal', url: x.url || ('#/projekt/' + encodeURIComponent(x.tag || '') + '/team') }, p: { name: x.projectName || x.tag || '', tag: x.tag || '', mode: 'jobb' }, ctx: x.text || '' })));
+FIRE_EXTRA.push(() => delegationFire().map(t => ({ kind: 'task', t, ctx: `Stäm av: ${t.title}` })));
 
 const VIEWS = {
   idag, kalender, uppgifter, horisont,
   anteckningar, anteckning: anteckningar,
   personer, person: personer,
-  projekt, samling,
+  projekt, samling, mote, vecka, mall, plan,
 };
 
 // ---------- navigering ----------
@@ -35,6 +47,9 @@ function navHtml() {
     link('anteckningar', 'Anteckningar', '≡', v === 'anteckningar' || v === 'anteckning'),
     link('personer', 'Personer', '◎', v === 'personer' || v === 'person'),
     link('horisont', 'Horisont', '→', v === 'horisont'),
+    link('plan', 'Produktionsplan', '▭', v === 'plan'),
+    link('vecka', 'Veckan', '◇', v === 'vecka'),
+    link('mall', 'Mallar', '⧉', v === 'mall'),
     `<div class="grp"><span>Projekt</span><button data-newproject title="Nytt projekt">+</button></div>`,
     ...ps.map(p => link('projekt/' + encodeURIComponent(p.tag), p.name, `<i class="sw" style="--tc:${tagColor(p.tag)}"></i>`, v === 'projekt' && r.args[0] === p.tag, p.fire.length ? '<span class="dot"></span>' : '')),
     link('projekt', 'Alla projekt', '', v === 'projekt' && !r.args[0]),
@@ -83,7 +98,7 @@ document.addEventListener('click', async ev => {
   if (b.id === 'addBtn') return openAdd(S.route.view === 'kalender' ? 'event' : 'task');
   if (b.id === 'searchBtn') return openPalette();
   if (b.id === 'moreBtn') return openMore();
-  if (b.matches('[data-newproject]')) return go('samling/Projekt/ny');
+  if (b.matches('[data-newproject]')) return mall.openNewProject();
   if (b.matches('[data-newcoll]')) return go('samling/_ny');
   if (b.matches('.sec > h2') && !t.closest('.act')) { const s = b.parentElement, id = s.dataset.sec; S.closed[id] = !s.classList.contains('closed'); store.set('closed', S.closed); s.classList.toggle('closed'); return; }
   if (b.matches('.check')) { ev.preventDefault(); return toggleDone(b.closest('[data-task]').dataset.task); }
@@ -137,7 +152,7 @@ parseRoute();
 merge();
 render();
 weather();
-refresh().then(() => { weather(); });
+refresh().then(() => { weather(); try { loadWaiting(); } catch {} });
 loadContacts();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(); weather(); } });
 setInterval(() => { if (!document.hidden) refresh(); }, 5 * 60e3);
